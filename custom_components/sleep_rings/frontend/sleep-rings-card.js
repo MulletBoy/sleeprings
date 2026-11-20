@@ -1817,7 +1817,7 @@ var Dt = Je`
       transition: none;
     }
   }
-`, ge, Ut = "1.0.0", Y = "sleep-rings-card", U = [
+`, ge, Ut = "1.0.1", Y = "sleep-rings-card", U = [
   {
     key: "duration",
     label: "Duration",

@@ -1,6 +1,6 @@
 {
   "name": "sleep-rings-card",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Sleep score card for Home Assistant",
   "license": "MIT",
   "private": true,
