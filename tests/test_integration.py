@@ -2,6 +2,7 @@
 
 import json
 from datetime import UTC, date, datetime, timedelta
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -26,6 +27,7 @@ from custom_components.sleep_rings.formula import LIMITS
 from custom_components.sleep_rings.night import Night
 from custom_components.sleep_rings.sources.life_dashboard import LifeDashboardSource
 
+MANIFEST = Path(__file__).parent.parent / "custom_components/sleep_rings/manifest.json"
 SOURCE_ENTITY = "sensor.phone_last_sleep_asleep"
 ZONE_ENTITY = "sensor.phone_geocoded_location"
 SCORE = "sensor.sleep_sleep_score"
@@ -320,7 +322,8 @@ async def test_card_is_served_and_loaded(hass: HomeAssistant, hass_client) -> No
     with patch("custom_components.sleep_rings.frontend.add_extra_js_url") as add_url:
         await setup_entry(hass)
     url = add_url.call_args.args[1]
-    assert url.startswith("/sleep_rings/sleep-rings-card.js?v=0.1.0-")
+    version = json.loads(MANIFEST.read_text())["version"]
+    assert url.startswith(f"/sleep_rings/sleep-rings-card.js?v={version}-")
     assert len(url.rsplit("-", 1)[1]) == 8
 
     client = await hass_client()

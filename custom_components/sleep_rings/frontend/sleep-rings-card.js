@@ -1768,7 +1768,7 @@ const Ne = Yt`
       transition: none;
     }
   }
-`, De = "0.1.0", J = "sleep-rings-card", z = [
+`, De = "1.0.0", J = "sleep-rings-card", z = [
   { key: "duration", label: "Duration", max: 50 },
   { key: "bedtime", label: "Bedtime", max: 30 },
   { key: "interruptions", label: "Interruptions", max: 20 }

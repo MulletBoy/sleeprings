@@ -23,7 +23,7 @@ import { presetTiles, styleVars } from "./presets";
 import { styles } from "./styles";
 import type { HomeAssistant, SleepData, SleepRingsCardConfig, StageSpan } from "./types";
 
-export const CARD_VERSION = "0.1.0";
+export const CARD_VERSION = "1.0.0";
 const CARD_TAG = "sleep-rings-card";
 
 const PARTS = [
