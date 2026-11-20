@@ -24,7 +24,7 @@ from custom_components.sleep_rings.const import (
 )
 from custom_components.sleep_rings.diagnostics import async_get_config_entry_diagnostics
 from custom_components.sleep_rings.formula import LIMITS
-from custom_components.sleep_rings.night import Night
+from custom_components.sleep_rings.night import Night, Stage
 from custom_components.sleep_rings.sources.life_dashboard import LifeDashboardSource
 
 MANIFEST = Path(__file__).parent.parent / "custom_components/sleep_rings/manifest.json"
@@ -407,3 +407,74 @@ async def test_removing_the_entry_removes_its_stored_nights(
     await hass.config_entries.async_remove(entry.entry_id)
     await hass.async_block_till_done()
     assert key not in hass_storage
+
+
+async def test_card_can_read_any_stored_night(hass: HomeAssistant, hass_ws_client) -> None:
+    entry = await setup_entry(hass)
+    await push_night(hass, FIRST_WAKE, stages=(("light", 200), ("awake", 30), ("deep", 100)))
+    await push_night(hass, FIRST_WAKE + timedelta(days=1))
+    manager = entry.runtime_data
+    # Both nights keep their own stage timeline, not just the newest.
+    assert sorted(manager.stages_by_night) == ["2030-03-02", "2030-03-03"]
+
+    client = await hass_ws_client(hass)
+    await client.send_json_auto_id(
+        {"type": "sleep_rings/night", "entity_id": SCORE, "night": "2030-03-02"}
+    )
+    response = await client.receive_json()
+    assert response["success"]
+    night = response["result"]
+    assert night["night"] == "2030-03-02"
+    assert (night["asleep_minutes"], night["awake_minutes"]) == (300, 30)
+    assert [s["stage"] for s in night["stages"]] == ["core", "awake", "deep"]
+    assert night["score"] == manager.records["2030-03-02"].score
+    # The newest night through the same call matches the sensor.
+    await client.send_json_auto_id(
+        {"type": "sleep_rings/night", "entity_id": SCORE, "night": "2030-03-03"}
+    )
+    newest = (await client.receive_json())["result"]
+    attributes = hass.states.get(SCORE).attributes
+    assert newest["duration_points"] == attributes["duration_points"]
+    assert newest["stages"] == attributes["stages"]
+
+    for bad in (
+        {"entity_id": SCORE, "night": "2031-01-01"},
+        {"entity_id": SOURCE_ENTITY, "night": "2030-03-02"},
+    ):
+        await client.send_json_auto_id({"type": "sleep_rings/night", **bad})
+        response = await client.receive_json()
+        assert not response["success"]
+        assert response["error"]["code"] == "not_found"
+
+
+async def test_stage_timelines_are_backfilled_after_an_upgrade(
+    hass: HomeAssistant, hass_storage
+) -> None:
+    entry = await setup_entry(hass)
+    await push_night(hass, FIRST_WAKE)
+    await push_night(hass, FIRST_WAKE + timedelta(days=1))
+    await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
+
+    # Make the stored file look like one written by 1.0: newest night's stages only.
+    stored = hass_storage[f"{DOMAIN}.{entry.entry_id}"]["data"]
+    stored["stages"] = stored["stages_by_night"]["2030-03-03"]
+    stored["stages_night"] = "2030-03-03"
+    del stored["stages_by_night"]
+
+    start = datetime(2030, 3, 1, 12, 0, tzinfo=UTC)
+    older = Night(
+        wake_date=FIRST_WAKE,
+        start=start,
+        end=start + timedelta(minutes=451),
+        asleep_minutes=445,
+        awake_minutes=6,
+        stages=(Stage("core", start, start + timedelta(minutes=451)),),
+    )
+    with patch.object(LifeDashboardSource, "async_past_nights", return_value=[older]):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    manager = entry.runtime_data
+    assert sorted(manager.stages_by_night) == ["2030-03-02", "2030-03-03"]
+    assert [s["stage"] for s in manager.stages_by_night["2030-03-02"]] == ["core"]

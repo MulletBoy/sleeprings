@@ -84,6 +84,14 @@ class NightRecord:
         )
 
 
+def _stage_dicts(night: Night) -> list[dict[str, str]]:
+    """Return a night's stages as plain dicts (for storage and the card)."""
+    return [
+        {"stage": s.stage, "start": s.start.isoformat(), "end": s.end.isoformat()}
+        for s in night.stages
+    ]
+
+
 def _record_is_sound(record: NightRecord) -> bool:
     """Check a stored night before trusting it (the file may be damaged or edited)."""
     try:
@@ -111,8 +119,8 @@ class SleepRingsManager:
         self.source = SOURCES[entry.data[CONF_SOURCE]]
         self.constants = Constants.from_dict(entry.options.get(CONF_FORMULA))
         self.records: dict[str, NightRecord] = {}
-        self.stages: list[dict[str, str]] = []
-        self.stages_night: str | None = None
+        # Stage timeline of every stored night that has one, by wake date.
+        self.stages_by_night: dict[str, list[dict[str, str]]] = {}
         self.last_time_zone: str | None = None
         self.heart_rate_hours: list[dict[str, Any]] = []
         self.heart_rate_night: str | None = None
@@ -132,6 +140,7 @@ class SleepRingsManager:
         stored = await self._store.async_load()
         if stored:
             self._restore(stored)
+            await self._async_backfill_stages()
         else:
             await self._async_seed()
         self._rescore()
@@ -193,6 +202,71 @@ class SleepRingsManager:
             if record.score is not None
         ]
 
+    @property
+    def stages(self) -> list[dict[str, str]]:
+        """Return the newest night's stage timeline."""
+        latest = self.latest
+        return self.stages_by_night.get(latest.night, []) if latest else []
+
+    def night_attributes(self, record: NightRecord) -> dict[str, Any]:
+        """Return one night as the card reads it (also the score sensor's attributes)."""
+        newest = record is self.latest
+        return {
+            "night": record.night,
+            "score": record.score,
+            "band": record.band,
+            "duration_points": round(record.duration, 1),
+            "bedtime_points": round(record.bedtime, 1),
+            "interruptions_points": round(record.interruptions, 1),
+            "asleep_minutes": round(record.hours_asleep * 60, 1),
+            "bedtime_deviation_minutes": (
+                None if record.deviation is None else round(record.deviation, 1)
+            ),
+            "wakeups": record.wakeups,
+            "awake_minutes": round(record.minutes_awake, 1),
+            "sleep_start": record.sleep_start,
+            "sleep_end": record.sleep_end,
+            "time_zone": record.time_zone,
+            "onset_minutes": record.onset_minutes,
+            "usual_onset_minutes": (
+                None
+                if record.deviation is None
+                else round(record.onset_minutes - record.deviation, 1)
+            ),
+            "duration_goal_hours": self.constants.duration_full_hours,
+            "heart_rate_average": record.heart_rate_average,
+            "heart_rate_lowest": record.heart_rate_lowest,
+            "heart_rate_hours": (
+                self.heart_rate_hours if newest and self.heart_rate_night == record.night else []
+            ),
+            "has_stages": record.has_stages,
+            "model_version": MODEL_VERSION,
+            "stages": self.stages_by_night.get(record.night, []),
+        }
+
+    async def async_night_details(self, night: str) -> dict[str, Any] | None:
+        """Return any stored night for the card, with its heart rate looked up."""
+        record = self.records.get(night)
+        if record is None:
+            return None
+        details = self.night_attributes(record)
+        if details["heart_rate_hours"]:
+            return details
+        start = dt_util.parse_datetime(record.sleep_start)
+        end = dt_util.parse_datetime(record.sleep_end)
+        if start is None or end is None:
+            return details
+        try:
+            heart = await self.source.async_heart_rate(self.hass, self.sleep_entity, start, end)
+        except Exception:  # noqa: BLE001 - the night is still worth showing without it
+            _LOGGER.debug("Could not read the heart rate of %s", night, exc_info=True)
+            heart = None
+        if heart is not None:
+            details["heart_rate_average"] = round(heart.average, 1)
+            details["heart_rate_lowest"] = round(heart.lowest, 1)
+            details["heart_rate_hours"] = [dict(hour) for hour in heart.hours]
+        return details
+
     def previous_onsets(self, night: str) -> list[dict[str, Any]]:
         """Return the onsets a night is compared with, oldest first."""
         earlier = [n for n in sorted(self.records) if n < night]
@@ -234,24 +308,21 @@ class SleepRingsManager:
         else:
             zone_name = await self._async_time_zone_name()
         record = await self._async_record(night, zone_name, seeded=False)
-        stages = [
-            {"stage": s.stage, "start": s.start.isoformat(), "end": s.end.isoformat()}
-            for s in night.stages
-        ]
+        stages = _stage_dicts(night)
 
-        is_newest = not self.records or key >= max(self.records)
-        stages_changed = is_newest and (self.stages_night != key or self.stages != stages)
+        stages_changed = bool(stages) and self.stages_by_night.get(key) != stages
         record_changed = (
             existing is None or existing.seeded or existing.measurements() != record.measurements()
         )
         if self._stopped or not (stages_changed or record_changed):
             return
         if stages_changed:
-            self.stages, self.stages_night = stages, key
+            self.stages_by_night[key] = stages
         if record_changed:
             self.records[key] = record
             for old in sorted(self.records)[:-STORED_NIGHTS]:
                 del self.records[old]
+                self.stages_by_night.pop(old, None)
             self._rescore()
         await self._async_heart_rate()
         self._store.async_delay_save(self._data_to_save, SAVE_DELAY)
@@ -341,8 +412,25 @@ class SleepRingsManager:
                 continue
             record = await self._async_record(night, zone_name, seeded=True)
             self.records[record.night] = record
+            if night.stages:
+                self.stages_by_night[record.night] = _stage_dicts(night)
         if nights:
             _LOGGER.debug("Seeded %s past nights from %s", len(self.records), self.source.key)
+
+    async def _async_backfill_stages(self) -> None:
+        """Fetch stage timelines the source still has for nights stored without one.
+
+        Versions before 1.1 kept the timeline of the newest night only.
+        """
+        missing = {
+            r.night for r in self.records.values() if r.has_stages
+        } - self.stages_by_night.keys()
+        if not missing:
+            return
+        for raw in await self.source.async_past_nights(self.hass, self.sleep_entity):
+            night = sanitize_night(raw)
+            if night is not None and night.stages and night.wake_date.isoformat() in missing:
+                self.stages_by_night[night.wake_date.isoformat()] = _stage_dicts(night)
 
     def _rescore(self) -> None:
         """Score every night against the onsets of the nights before it."""
@@ -383,8 +471,11 @@ class SleepRingsManager:
                 continue
             if _record_is_sound(record):
                 self.records[record.night] = record
-        self.stages = stored.get("stages") or []
-        self.stages_night = stored.get("stages_night")
+        stages = stored.get("stages_by_night")
+        self.stages_by_night = dict(stages) if isinstance(stages, dict) else {}
+        # Before 1.1 only the newest night's stages were kept.
+        if stored.get("stages") and stored.get("stages_night"):
+            self.stages_by_night.setdefault(stored["stages_night"], stored["stages"])
         self.last_time_zone = stored.get("last_time_zone")
         self.heart_rate_hours = stored.get("heart_rate_hours") or []
         self.heart_rate_night = stored.get("heart_rate_night")
@@ -393,8 +484,7 @@ class SleepRingsManager:
         return {
             "model_version": MODEL_VERSION,
             "nights": [asdict(self.records[key]) for key in sorted(self.records)],
-            "stages": self.stages,
-            "stages_night": self.stages_night,
+            "stages_by_night": self.stages_by_night,
             "last_time_zone": self.last_time_zone,
             "heart_rate_hours": self.heart_rate_hours,
             "heart_rate_night": self.heart_rate_night,

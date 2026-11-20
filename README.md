@@ -68,6 +68,7 @@ The card has a visual editor. All options:
 | `show_heart_rate` | `true` | Sleeping heart rate with the night's low (only when the source provides it) |
 | `sleep_goal_hours` | model value | The goal shown on the Duration row. Default: the duration that earns full points (8.3 h in model v5) |
 | `history_nights` | `30` | Nights of history to show (the integration keeps 60) |
+| `history_style` | `components` | `components`: each night's bar is stacked into Duration, Bedtime and Interruptions. `bands`: one bar per night, coloured by band |
 | `colors` | | Override single colours, see below |
 
 What the card shows beside the rings:
@@ -78,6 +79,11 @@ What the card shows beside the rings:
 - **Sleeping heart rate**: the night's average, its low and the hourly trend.
 - A marker beside the date: **Today** when the night shown ended today, **Yesterday** (or
   "3 days ago") while no sleep has been recorded for today yet.
+- **Earlier nights**: the arrows beside the date step back and forward one recorded night, the
+  date opens a date picker, and clicking a bar in the history opens that night. Stage timelines
+  are kept from the day SleepRings 1.1 is installed (plus whatever your source still holds).
+- **Hover or tap** a sleep stage, an hour of the heart-rate chart or a history bar for its
+  detail.
 
 The card adapts to its width: rings above the rows in a narrow column, two columns from 640 px,
 and everything side by side from 960 px. In a sections dashboard, give it more room with
@@ -123,6 +129,10 @@ Long-term statistics named `sleep_rings:<entry id>_score` (and `_duration_points
 up, so charts stay correct when data arrives late.
 
 The action `sleep_rings.recalculate` scores every stored night again.
+
+The card reads earlier nights through the WebSocket command `sleep_rings/night`
+(`entity_id`: any SleepRings entity, `night`: the wake date as `YYYY-MM-DD`). It returns the
+same fields as the score sensor's attributes, for that night.
 
 ## The formula (model v5)
 
@@ -196,7 +206,7 @@ sits:
   night was compared with, last night's stage timeline and hourly heart rate. Like all entity
   state, every user of your Home Assistant can read this, and anything that exports states
   (MQTT statestream, InfluxDB, a cloud backup) will include it.
-- **Storage.** Up to 90 nights are kept in a file under `.storage`, readable only by Home
+- **Storage.** Up to 90 nights, with their stage timelines, are kept in a file under `.storage`, readable only by Home
   Assistant's own user, and included in Home Assistant backups.
 - **Recorder.** Sensor history and long-term statistics, as for any sensor.
 - **Diagnostics.** The diagnostics download contains no sleep times, bedtimes, heart rate, time

@@ -34,6 +34,7 @@ async def async_get_config_entry_diagnostics(
         "nights_stored": len(records),
         "nights_seeded": sum(r.seeded for r in records),
         "nights_with_stages": sum(r.has_stages for r in records),
+        "stage_timelines_stored": len(manager.stages_by_night),
         "nights_with_heart_rate": sum(r.heart_rate_average is not None for r in records),
         "time_zone_known": manager.last_time_zone is not None,
         "latest": (

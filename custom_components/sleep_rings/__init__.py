@@ -12,6 +12,7 @@ from .const import DOMAIN, SERVICE_RECALCULATE, STORAGE_VERSION
 from .frontend import async_register_card
 from .manager import SleepRingsConfigEntry, SleepRingsManager
 from .statistics import async_clear_statistics, async_import_statistics
+from .websocket import async_register_websocket
 
 PLATFORMS = [Platform.SENSOR]
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
@@ -20,6 +21,7 @@ CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Register the dashboard card and the integration's actions."""
     await async_register_card(hass)
+    async_register_websocket(hass)
 
     async def recalculate(call: ServiceCall) -> None:
         for entry in hass.config_entries.async_loaded_entries(DOMAIN):

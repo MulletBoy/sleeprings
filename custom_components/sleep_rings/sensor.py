@@ -181,36 +181,10 @@ class SleepRingsSensor(SensorEntity):
         if self.entity_description.key != "sleep_score":
             return {"night": record.night}
         manager = self._manager
+        attributes = manager.night_attributes(record)
+        attributes.pop("score")  # that is the sensor's state
         return {
-            "night": record.night,
-            "band": record.band,
-            "duration_points": round(record.duration, 1),
-            "bedtime_points": round(record.bedtime, 1),
-            "interruptions_points": round(record.interruptions, 1),
-            "asleep_minutes": round(record.hours_asleep * 60, 1),
-            "bedtime_deviation_minutes": (
-                None if record.deviation is None else round(record.deviation, 1)
-            ),
-            "wakeups": record.wakeups,
-            "awake_minutes": round(record.minutes_awake, 1),
-            "sleep_start": record.sleep_start,
-            "sleep_end": record.sleep_end,
-            "time_zone": record.time_zone,
-            "onset_minutes": record.onset_minutes,
-            "usual_onset_minutes": (
-                None
-                if record.deviation is None
-                else round(record.onset_minutes - record.deviation, 1)
-            ),
-            "duration_goal_hours": manager.constants.duration_full_hours,
-            "heart_rate_average": record.heart_rate_average,
-            "heart_rate_lowest": record.heart_rate_lowest,
-            "heart_rate_hours": (
-                manager.heart_rate_hours if manager.heart_rate_night == record.night else []
-            ),
-            "has_stages": record.has_stages,
-            "model_version": MODEL_VERSION,
-            "stages": manager.stages if manager.stages_night == record.night else [],
+            **attributes,
             "onsets": manager.previous_onsets(record.night),
             "history": manager.history,
             "constants": manager.constants.as_dict(),

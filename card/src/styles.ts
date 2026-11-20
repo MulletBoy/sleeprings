@@ -244,6 +244,62 @@ export const styles = css`
     font-variant-numeric: tabular-nums;
   }
 
+  /* Night navigation in the header: arrows and a date that opens a date picker */
+  .night {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .nav-btn,
+  .date-btn {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    line-height: 1;
+  }
+  .nav-btn {
+    width: 26px;
+    height: 26px;
+    font-size: 18px;
+    color: var(--_text);
+  }
+  .date-btn {
+    position: relative;
+    padding: 5px 8px;
+    font-variant-numeric: tabular-nums;
+  }
+  .nav-btn:hover:not(:disabled),
+  .date-btn:hover {
+    border-color: var(--_divider);
+    background: color-mix(in srgb, var(--_text) 8%, transparent);
+  }
+  .nav-btn:disabled {
+    opacity: 0.3;
+    cursor: default;
+  }
+  .nav-btn:focus-visible,
+  .date-btn:focus-visible {
+    outline: 2px solid var(--_text2);
+    outline-offset: 1px;
+  }
+  .date-btn.loading {
+    opacity: 0.6;
+  }
+  /* The real date input sits invisibly under the date; the button opens its picker. */
+  .date-btn input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    pointer-events: none;
+    border: 0;
+    padding: 0;
+  }
+
   /* Marker beside the date: is this today's night or an older one? */
   .age {
     display: inline-block;
@@ -263,6 +319,9 @@ export const styles = css`
   }
   .age.old {
     color: var(--_very-low);
+  }
+  .age.past {
+    color: var(--_text2);
   }
 
   /* Minutes and share of each stage, under the hypnogram */
@@ -463,6 +522,10 @@ export const styles = css`
     border: 1px solid rgba(255, 255, 255, 0.14);
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
   }
+  .hr-tip.below {
+    top: auto;
+    bottom: 4px;
+  }
   .hr-tip.left {
     margin-left: -10px;
     transform: translateX(-100%);
@@ -512,6 +575,95 @@ export const styles = css`
   .hr-xaxis span {
     position: absolute;
     white-space: nowrap;
+  }
+  .hr-xaxis span.centered {
+    transform: translateX(-50%);
+  }
+
+  /* History: one column per night, stacked by part; click a column to open that night */
+  .night-cols {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: stretch;
+    gap: 2px;
+  }
+  .night-col {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column-reverse;
+    justify-content: flex-start;
+    gap: 1px;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+    opacity: 0.78;
+  }
+  .night-col i {
+    display: block;
+    width: 100%;
+    background: currentColor;
+  }
+  .night-col i:last-child {
+    border-radius: 3px 3px 0 0;
+  }
+  .night-col.estimated {
+    opacity: 0.4;
+  }
+  .night-col.selected,
+  .night-col:hover,
+  .night-col.current {
+    opacity: 1;
+  }
+  .night-col.current i {
+    box-shadow: 0 0 calc(var(--_glow) + 3px) currentColor;
+  }
+  .night-col.current {
+    outline: 1px solid var(--_text2);
+    outline-offset: 1px;
+    border-radius: 3px;
+  }
+  .night-col:focus-visible {
+    outline: 2px solid var(--_text);
+    outline-offset: 1px;
+  }
+  .night-col.missing {
+    cursor: default;
+  }
+  .hr-legend b {
+    font-weight: 400;
+    color: var(--_text2);
+  }
+  .hr-legend .c-duration i,
+  .hr-legend .c-bedtime i,
+  .hr-legend .c-interruptions i,
+  .hr-tip .c-duration i,
+  .hr-tip .c-bedtime i,
+  .hr-tip .c-interruptions i,
+  .hr-tip [class^="b-"] i,
+  .hr-tip [class^="s-"] i {
+    background: currentColor;
+    opacity: 1;
+  }
+  .hr-tip .c-duration,
+  .hr-tip .c-bedtime,
+  .hr-tip .c-interruptions,
+  .hr-tip [class^="b-"] {
+    color: inherit;
+  }
+  .hr-tip .c-duration i {
+    color: var(--_duration);
+  }
+  .hr-tip .c-bedtime i {
+    color: var(--_bedtime);
+  }
+  .hr-tip .c-interruptions i {
+    color: var(--_interruptions);
+  }
+  .hr-tip [class^="b-"] i {
+    color: var(--band);
   }
   .hr-legend {
     display: flex;
@@ -588,8 +740,21 @@ export const styles = css`
     height: 12px;
     min-width: 4px;
     border-radius: 6px;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
     background: currentColor;
     box-shadow: 0 0 var(--_glow) currentColor;
+  }
+  .stage.selected,
+  .stage:hover {
+    box-shadow:
+      0 0 0 2px color-mix(in srgb, currentColor 35%, transparent),
+      0 0 calc(var(--_glow) + 4px) currentColor;
+  }
+  .stage:focus-visible {
+    outline: 2px solid var(--_text);
+    outline-offset: 2px;
   }
   .link {
     position: absolute;

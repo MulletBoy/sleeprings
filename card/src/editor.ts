@@ -20,6 +20,7 @@ const LABELS: Record<string, string> = {
   tiles: "Tinted boxes",
   theme_background: "Use the theme's card background",
   history_nights: "Nights of history",
+  history_style: "History bars",
   colors: "Colours",
   duration: "Duration",
   duration_end: "Duration (gradient end)",
@@ -97,6 +98,18 @@ const SCHEMA = [
     ],
   },
   { name: "sleep_goal_hours", selector: { number: { min: 4, max: 12, step: 0.1, mode: "box" } } },
+  {
+    name: "history_style",
+    selector: {
+      select: {
+        mode: "dropdown",
+        options: [
+          { value: "components", label: "Stacked: Duration, Bedtime, Interruptions" },
+          { value: "bands", label: "One bar per night, coloured by band" },
+        ],
+      },
+    },
+  },
   { name: "history_nights", selector: { number: { min: 7, max: 60, step: 1, mode: "slider" } } },
   {
     type: "expandable",
@@ -130,6 +143,7 @@ export class SleepRingsCardEditor extends LitElement {
       show_history: true,
       show_heart_rate: true,
       history_nights: 30,
+      history_style: "components",
       theme_background: false,
       tiles: presetTiles(this._config.preset),
       ...this._config,

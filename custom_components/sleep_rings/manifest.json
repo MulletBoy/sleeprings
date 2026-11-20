@@ -13,7 +13,8 @@
   ],
   "config_flow": true,
   "dependencies": [
-    "http"
+    "http",
+    "websocket_api"
   ],
   "documentation": "https://github.com/MulletBoy/sleeprings",
   "integration_type": "service",

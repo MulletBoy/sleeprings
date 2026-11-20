@@ -9,6 +9,7 @@ export interface HomeAssistant {
   states: Record<string, HassEntity>;
   locale?: { language?: string; time_format?: string };
   config?: { time_zone?: string };
+  callWS?: <T>(message: Record<string, unknown>) => Promise<T>;
 }
 
 export type RingStyle = "concentric" | "segmented";
@@ -50,6 +51,8 @@ export interface SleepRingsCardConfig {
   show_hypnogram?: boolean;
   show_history?: boolean;
   show_heart_rate?: boolean;
+  /** History bars: stacked by part (default) or one bar coloured by band. */
+  history_style?: "components" | "bands";
   /** Sleep goal shown on the Duration row, in hours. Default: the model's full-points duration. */
   sleep_goal_hours?: number;
   history_nights?: number;

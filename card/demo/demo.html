@@ -72,7 +72,7 @@
 <div class="wrap">
   <header>
     <h1>SleepRings card</h1>
-    <p class="lede">The real card bundle with made-up sample nights. Each frame is a mock Home Assistant dashboard in a different theme or width. Hover or tap a history bar to read that night.</p>
+    <p class="lede">The real card bundle with made-up sample nights. Each frame is a mock Home Assistant dashboard in a different theme or width. Hover a stage, a heart-rate hour or a history bar for detail; click a history bar, the arrows or the date to open an earlier night.</p>
   </header>
 
   <div class="controls">
@@ -203,7 +203,39 @@
           },
         }
       : { entity_id: "sensor.sample_sleep_score", state: "unknown", attributes: {} };
-    return { states: { [entity.entity_id]: entity }, locale: { language: "en-GB" }, config: { time_zone: "UTC" } };
+    // Stand-in for the integration's "sleep_rings/night" command: an invented earlier night
+    // that agrees with its bar in the history.
+    const callWS = async (message) => {
+      const entry = entity.attributes.history.find((h) => h.night === message.night);
+      if (!entry) throw new Error("not found");
+      const seed = Number(message.night.replaceAll("-", "")) % 997;
+      const rand = rng(seed);
+      const asleep = Math.round(498 - Math.sqrt(Math.max(0, 50 - entry.d) / 3.1) * 60);
+      const late = entry.b < 30 ? Math.round(17 + (30 - entry.b) / 0.225) : Math.round(rand() * 30 - 15);
+      const wakes = Array.from({ length: entry.i < 20 ? 5 : 2 }, () => 1 + Math.round(rand() * 4));
+      const onset = 660 + late;
+      const start = at(22, 0) + (60 + late) * 60000;
+      const base = 46 + Math.round(rand() * 8);
+      return {
+        night: entry.night,
+        score: entry.score,
+        duration_points: entry.d,
+        bedtime_points: entry.b,
+        interruptions_points: entry.i,
+        asleep_minutes: asleep,
+        bedtime_deviation_minutes: late,
+        wakeups: wakes.length,
+        awake_minutes: wakes.reduce((a, b) => a + b, 0),
+        stages: makeStages(start, asleep, wakes, seed + 1),
+        duration_goal_hours: 8.3,
+        onset_minutes: onset,
+        usual_onset_minutes: 660,
+        heart_rate_average: base,
+        heart_rate_lowest: base - 6,
+        heart_rate_hours: [6, 2, 0, -2, -3, -1, 1].map((d, n) => ({ start: iso(start + (n + 1) * 3600000), mean: base + d, min: base + d - 4, max: base + d + 8 })),
+      };
+    };
+    return { states: { [entity.entity_id]: entity }, locale: { language: "en-GB" }, config: { time_zone: "UTC" }, callWS };
   }
 
   const FRAMES = [

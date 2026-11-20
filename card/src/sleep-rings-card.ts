@@ -16,6 +16,7 @@ import {
   parseNight,
   points,
   readEntity,
+  readNight,
   todayIn,
 } from "./format";
 import "./editor";
@@ -66,6 +67,9 @@ export class SleepRingsCard extends LitElement {
     _ready: { state: true },
     _today: { state: true },
     _hrHour: { state: true },
+    _stage: { state: true },
+    _night: { state: true },
+    _detail: { state: true },
   };
 
   declare hass?: HomeAssistant;
@@ -74,6 +78,10 @@ export class SleepRingsCard extends LitElement {
   declare _ready: boolean;
   declare _today: string;
   declare _hrHour: number | null;
+  declare _stage: number | null;
+  /** Wake date being viewed; null means the newest night. */
+  declare _night: string | null;
+  declare _detail: SleepData | null;
 
   constructor() {
     super();
@@ -81,6 +89,9 @@ export class SleepRingsCard extends LitElement {
     this._ready = false;
     this._today = todayIn();
     this._hrHour = null;
+    this._stage = null;
+    this._night = null;
+    this._detail = null;
   }
 
   static getConfigElement(): HTMLElement {
@@ -105,6 +116,7 @@ export class SleepRingsCard extends LitElement {
       show_history: true,
       show_heart_rate: true,
       history_nights: 30,
+      history_style: "components",
       ...config,
     };
     // A pasted configuration must not be able to stall the dashboard.
@@ -150,8 +162,13 @@ export class SleepRingsCard extends LitElement {
     const config = this._config;
     if (!config) return nothing;
     const entity = config.entity ? this.hass?.states[config.entity] : undefined;
-    const data = readEntity(entity);
-    const language = this.hass?.locale?.language;
+    const latest = readEntity(entity);
+    // An earlier night, once loaded, replaces the newest one; the history stays.
+    const earlier =
+      this._night && this._night !== latest.night && this._detail?.night === this._night
+        ? this._detail
+        : null;
+    const data: SleepData = earlier ? { ...earlier, history: latest.history } : latest;
     const vars = styleVars(config.preset, config.colors, config.theme_background);
 
     let message = "";
@@ -173,9 +190,7 @@ export class SleepRingsCard extends LitElement {
       <ha-card class=${(config.tiles ?? presetTiles(config.preset)) ? "tiles" : ""} style=${styleMap(vars)}>
         <div class="header">
           <span class="title">${config.name ?? "Sleep Score"}</span>
-          ${data.night
-            ? html`<span class="night">${this._renderAge(data.night)}${formatNight(data.night, language)}</span>`
-            : nothing}
+          ${data.night ? this._renderNavigation(data, latest) : nothing}
         </div>
         ${message ? html`<div class="message">${message}</div>` : nothing}
         <div class="body ${hasExtras ? "has-extras" : ""}">
@@ -334,6 +349,8 @@ export class SleepRingsCard extends LitElement {
       // Deep and REM together: the restorative part of the night.
       { key: "combo", label: "Deep + REM", minutes: totals[1] + totals[3], percent: true },
     ];
+    const picked = this._stage !== null ? spans[this._stage] : undefined;
+    const pickedX = picked ? (pct(picked.start) + pct(picked.end)) / 2 : 0;
     const barTop = (lane: number) => lane * LANE_PX + (LANE_PX - BAR_PX) / 2;
 
     const links: TemplateResult[] = [];
@@ -383,16 +400,30 @@ export class SleepRingsCard extends LitElement {
         </div>
         <div class="hypno" role="img" aria-label="Sleep stages through the night">
           <div class="lane-labels">${LANE_LABELS.map((l) => html`<span>${l}</span>`)}</div>
-          <div class="plot">
+          <div class="plot" @pointerleave=${() => (this._stage = null)}>
             ${LANES.map((lane, i) => html`<div class="lane-band s-${lane}" style="top:${i * LANE_PX}px"></div>`)}
             ${ticks.map((t) => html`<div class="tick" style="left:${pct(t.at)}%"></div>`)}
             ${links}
             ${spans.map(
-              (s) => html`<div
-                class="stage s-${LANES[s.lane]}"
+              (s, i) => html`<button
+                class="stage s-${LANES[s.lane]} ${this._stage === i ? "selected" : ""}"
                 style="left:${pct(s.start)}%;width:${pct(s.end) - pct(s.start)}%;top:${barTop(s.lane)}px"
-              ></div>`,
+                aria-label="${LANE_LABELS[s.lane]}, ${formatTime(new Date(s.start), language, timeZone)} to ${formatTime(new Date(s.end), language, timeZone)}"
+                @pointerenter=${() => (this._stage = i)}
+                @focus=${() => (this._stage = i)}
+                @blur=${() => (this._stage = null)}
+                @click=${() => (this._stage = i)}
+              ></button>`,
             )}
+            ${picked
+              ? html`<div
+                  class="hr-tip s-${LANES[picked.lane]} ${pickedX > 55 ? "left" : ""} ${picked.lane < 2 ? "below" : ""}"
+                  style="left:${pickedX}%"
+                >
+                  <span><i></i><b>${LANE_LABELS[picked.lane]}</b><u>${formatMinutes((picked.end - picked.start) / 60_000)}</u></span>
+                  <em>${formatTime(new Date(picked.start), language, timeZone)} ${"\u2013"} ${formatTime(new Date(picked.end), language, timeZone)}</em>
+                </div>`
+              : nothing}
           </div>
           <div class="axis">${ticks.map((t) => html`<span style="left:${pct(t.at)}%">${t.label}</span>`)}</div>
         </div>
@@ -418,16 +449,94 @@ export class SleepRingsCard extends LitElement {
     `;
   }
 
+  /** Show a night: the newest from the entity, an earlier one from the integration. */
+  private async _go(night: string | undefined, latestNight: string | null): Promise<void> {
+    if (!night) return;
+    this._stage = null;
+    this._hrHour = null;
+    if (night === latestNight) {
+      this._night = null;
+      this._detail = null;
+      return;
+    }
+    this._night = night;
+    const entity = this._config?.entity;
+    if (!entity || !this.hass?.callWS) return;
+    try {
+      const result = await this.hass.callWS<Record<string, unknown>>({
+        type: "sleep_rings/night",
+        entity_id: entity,
+        night,
+      });
+      // Ignore the answer if the viewer has moved on meanwhile.
+      if (this._night === night) {
+        const score = Number(result.score);
+        this._detail = readNight(result, Number.isFinite(score) ? score : null);
+      }
+    } catch {
+      if (this._night === night) {
+        this._night = null;
+        this._detail = null;
+      }
+    }
+  }
+
+  /** Date with arrows and a date picker, to look at earlier nights. */
+  private _renderNavigation(data: SleepData, latest: SleepData): TemplateResult {
+    const language = this.hass?.locale?.language;
+    const nights = latest.history.map((h) => h.night);
+    if (latest.night && !nights.includes(latest.night)) nights.push(latest.night);
+    nights.sort();
+    const current = this._night ?? latest.night ?? "";
+    const index = nights.indexOf(current);
+    const previous = index > 0 ? nights[index - 1] : undefined;
+    const next = index >= 0 && index < nights.length - 1 ? nights[index + 1] : undefined;
+    const loading = this._night !== null && data.night !== this._night;
+    const pick = (event: Event) => {
+      const value = (event.target as HTMLInputElement).value;
+      if (!value) return;
+      // The nearest recorded night on or before the chosen date, else the first one.
+      const onOrBefore = nights.filter((n) => n <= value);
+      void this._go(onOrBefore.length ? onOrBefore[onOrBefore.length - 1] : nights[0], latest.night);
+    };
+    const openPicker = (event: Event) => {
+      const input = (event.currentTarget as HTMLElement).querySelector("input");
+      try {
+        input?.showPicker();
+      } catch {
+        input?.focus();
+      }
+    };
+    return html`
+      <span class="night">
+        ${this._renderAge(current, this._night !== null)}
+        <button class="nav-btn" ?disabled=${!previous} aria-label="Previous night"
+          @click=${() => this._go(previous, latest.night)}>\u2039</button>
+        <button class="date-btn ${loading ? "loading" : ""}" aria-label="Choose a night" @click=${openPicker}>
+          ${formatNight(current, language)}
+          <input type="date" tabindex="-1" aria-hidden="true" .value=${current}
+            min=${nights[0] ?? ""} max=${nights[nights.length - 1] ?? ""}
+            @click=${(event: Event) => event.stopPropagation()} @change=${pick} />
+        </button>
+        <button class="nav-btn" ?disabled=${!next} aria-label="Next night"
+          @click=${() => this._go(next, latest.night)}>\u203a</button>
+      </span>
+    `;
+  }
+
   /** "Today" when the night ended today, otherwise how old the shown night is. */
-  private _renderAge(night: string): TemplateResult | typeof nothing {
+  private _renderAge(night: string, earlier = false): TemplateResult | typeof nothing {
     const age = nightAge(night, this._today);
     if (age < 0) return nothing;
     const label = age === 0 ? "Today" : age === 1 ? "Yesterday" : `${age} days ago`;
-    const title =
-      age === 0
+    const title = earlier
+      ? "You are looking at an earlier night"
+      : age === 0
         ? "This is the night you woke up from today"
         : "No sleep has been recorded for today yet";
-    return html`<span class="age ${age === 0 ? "fresh" : age === 1 ? "recent" : "old"}" title=${title}>${label}</span>`;
+    // Looking back on purpose is not a warning, so an earlier night gets a neutral marker.
+    const tone = earlier ? "past" : age === 0 ? "fresh" : age === 1 ? "recent" : "old";
+    return html`<span class="age ${tone}" title=${title}>${label}</span>`;
   }
 
   /**
@@ -557,7 +666,8 @@ export class SleepRingsCard extends LitElement {
   private _renderHistory(data: SleepData, nights: number): TemplateResult {
     const language = this.hass?.locale?.language;
     const byNight = new Map(data.history.map((h) => [h.night, h]));
-    const last = parseNight(data.history[data.history.length - 1].night);
+    const latestNight = data.history[data.history.length - 1].night;
+    const last = parseNight(latestNight);
     const days: string[] = [];
     for (let back = Math.max(1, nights) - 1; back >= 0; back--) {
       const day = new Date(last);
@@ -565,39 +675,77 @@ export class SleepRingsCard extends LitElement {
       days.push(isoDate(day));
     }
     const shown = days.map((d) => byNight.get(d)).filter((h) => h !== undefined);
-    const selected = this._selected ? byNight.get(this._selected) : undefined;
-    let caption = "";
-    if (selected) {
-      const parts = [selected.d, selected.b, selected.i].every((p) => p !== undefined)
-        ? ` (${selected.d} / ${selected.b} / ${selected.i})`
-        : "";
-      const estimated = selected.estimated ? " \u00b7 estimated" : "";
-      caption = `${formatNight(selected.night, language)} \u00b7 ${selected.score}${parts}${estimated}`;
-    } else if (shown.length) {
-      const average = shown.reduce((sum, h) => sum + h.score, 0) / shown.length;
-      caption = `Average ${Math.round(average)}`;
-    }
+    const average = shown.length
+      ? `Average ${Math.round(shown.reduce((sum, h) => sum + h.score, 0) / shown.length)}`
+      : "";
+    const viewing = data.night ?? latestNight;
+    const hovered = this._selected ? byNight.get(this._selected) : undefined;
+    const hoveredX = hovered ? ((days.indexOf(hovered.night) + 0.5) / days.length) * 100 : 0;
+    const components = this._config?.history_style !== "bands";
+    const clamp = (value: number | undefined) => Math.max(0, Math.min(100, value ?? 0));
+    const labelEvery = days.length > 14 ? 7 : days.length > 7 ? 2 : 1;
+    const shortDate = (day: string) =>
+      parseNight(day).toLocaleDateString(language, { day: "numeric", month: "short" });
+
     return html`
       <div class="section nights">
         <div class="section-head">
           <span>${nights} nights</span>
-          <span>${caption}</span>
+          <span>${average}</span>
         </div>
-        <div class="history" @pointerleave=${() => (this._selected = null)}>
-          ${days.map((day) => {
-            const entry = byNight.get(day);
-            if (!entry) return html`<span class="night-bar missing"><i></i></span>`;
-            return html`<button
-              class="night-bar b-${bandFor(entry.score)} ${entry.estimated ? "estimated" : ""} ${this._selected === day ? "selected" : ""}"
-              aria-label="${formatNight(day, language)}: ${entry.score}"
-              @pointerenter=${() => (this._selected = day)}
-              @focus=${() => (this._selected = day)}
-              @click=${() => (this._selected = day)}
-            >
-              <i style="height:${Math.max(0, Math.min(100, entry.score))}%"></i>
-            </button>`;
-          })}
+        <div class="hr-chart">
+          <div class="hr-yaxis"><span>100</span><span>50</span><span>0</span></div>
+          <div class="hr-plot" @pointerleave=${() => (this._selected = null)}>
+            ${[0, 50, 100].map((top) => html`<div class="hr-grid" style="top:${top}%"></div>`)}
+            <div class="night-cols">
+              ${days.map((day) => {
+                const entry = byNight.get(day);
+                if (!entry) return html`<span class="night-col missing"></span>`;
+                const stacked = components && entry.d !== undefined && entry.b !== undefined && entry.i !== undefined;
+                return html`<button
+                  class="night-col ${entry.estimated ? "estimated" : ""} ${day === viewing ? "current" : ""} ${this._selected === day ? "selected" : ""}"
+                  aria-label="${formatNight(day, language)}: score ${entry.score}. Show this night."
+                  @pointerenter=${() => (this._selected = day)}
+                  @focus=${() => (this._selected = day)}
+                  @blur=${() => (this._selected = null)}
+                  @click=${() => this._go(day, latestNight)}
+                >
+                  ${stacked
+                    ? html`<i class="c-duration" style="height:${clamp(entry.d)}%"></i
+                        ><i class="c-bedtime" style="height:${clamp(entry.b)}%"></i
+                        ><i class="c-interruptions" style="height:${clamp(entry.i)}%"></i>`
+                    : html`<i class="b-${bandFor(entry.score)}" style="height:${clamp(entry.score)}%"></i>`}
+                </button>`;
+              })}
+            </div>
+            ${hovered
+              ? html`<div class="hr-tip ${hoveredX > 55 ? "left" : ""}" style="left:${hoveredX}%">
+                  <b>${formatNight(hovered.night, language)}</b>
+                  <span class="b-${bandFor(hovered.score)}"><i></i>Score<u>${hovered.score}</u></span>
+                  ${hovered.d !== undefined
+                    ? html`<span class="c-duration"><i></i>Duration<u>${hovered.d} / 50</u></span>
+                        <span class="c-bedtime"><i></i>Bedtime<u>${hovered.b} / 30</u></span>
+                        <span class="c-interruptions"><i></i>Interruptions<u>${hovered.i} / 20</u></span>`
+                    : nothing}
+                  ${hovered.estimated ? html`<em>estimated: no stage data</em>` : nothing}
+                </div>`
+              : nothing}
+          </div>
+          <div class="hr-xaxis">
+            ${days.map((day, i) =>
+              (days.length - 1 - i) % labelEvery === 0
+                ? html`<span class="centered" style="left:${((i + 0.5) / days.length) * 100}%">${shortDate(day)}</span>`
+                : nothing,
+            )}
+          </div>
         </div>
+        ${components
+          ? html`<div class="hr-legend">
+              <span class="c-duration"><i></i><b>Duration</b></span>
+              <span class="c-bedtime"><i></i><b>Bedtime</b></span>
+              <span class="c-interruptions"><i></i><b>Interruptions</b></span>
+            </div>`
+          : nothing}
       </div>
     `;
   }

@@ -33,8 +33,11 @@ export function bandFor(score: number): Band {
 }
 
 export function readEntity(entity: HassEntity | undefined): SleepData {
-  const a = entity?.attributes ?? {};
-  const score = entity ? num(entity.state) : null;
+  return readNight(entity?.attributes ?? {}, entity ? num(entity.state) : null);
+}
+
+/** Read one night, from the score entity's attributes or from the night API's reply. */
+export function readNight(a: Record<string, unknown>, score: number | null): SleepData {
   const bandAttr = String(a.band ?? "");
   const band = (BAND_KEYS as string[]).includes(bandAttr)
     ? (bandAttr as Band)
