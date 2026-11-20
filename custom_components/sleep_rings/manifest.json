@@ -5,6 +5,9 @@
     "frontend",
     "recorder"
   ],
+  "categories": [
+    "health_wellbeing"
+  ],
   "codeowners": [
     "@MulletBoy"
   ],
