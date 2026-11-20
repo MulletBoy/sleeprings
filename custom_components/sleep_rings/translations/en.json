@@ -1,0 +1,120 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Sleep score",
+        "description": "Choose the entity that carries last night's sleep. Supported source: Life Dashboard (the \"Last sleep asleep\" sensor).",
+        "data": {
+          "name": "Name",
+          "sleep_entity": "Sleep entity",
+          "time_zone_entity": "Time zone entity (optional)",
+          "time_zone_attribute": "Attribute holding the time zone"
+        },
+        "data_description": {
+          "name": "Used for the device and its entities, for example a person's name.",
+          "time_zone_entity": "An entity that knows which time zone the phone is in, such as the iOS companion app's geocoded location sensor. Bedtimes are compared in the local time where you slept. Leave empty to use Home Assistant's time zone.",
+          "time_zone_attribute": "Used if it holds a zone name like Europe/London; otherwise the entity's state is tried."
+        }
+      }
+    },
+    "error": {
+      "not_a_sleep_entity": "This entity does not carry sleep data in a supported format."
+    },
+    "abort": {
+      "already_configured": "This sleep entity is already set up."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "SleepRings options",
+        "data": {
+          "time_zone_entity": "Time zone entity (optional)",
+          "time_zone_attribute": "Attribute holding the time zone"
+        },
+        "data_description": {
+          "time_zone_entity": "An entity that knows which time zone the phone is in, such as the iOS companion app's geocoded location sensor. Bedtimes are compared in the local time where you slept. Leave empty to use Home Assistant's time zone.",
+          "time_zone_attribute": "Used if it holds a zone name like Europe/London; otherwise the entity's state is tried."
+        },
+        "sections": {
+          "formula": {
+            "name": "Formula constants (advanced)",
+            "description": "The defaults are model v5. Changing a value rescores every stored night.",
+            "data": {
+              "duration_full_hours": "Duration: hours asleep for full points",
+              "duration_coeff": "Duration: points lost per squared hour short",
+              "duration_power": "Duration: exponent of the shortfall",
+              "bedtime_history_nights": "Bedtime: nights in the average",
+              "bedtime_late_free_minutes": "Bedtime: free minutes when later",
+              "bedtime_late_per_minute": "Bedtime: points lost per minute later",
+              "bedtime_early_free_minutes": "Bedtime: free minutes when earlier",
+              "bedtime_early_coeff": "Bedtime: factor on the square root of minutes earlier",
+              "wakeups_free": "Interruptions: free wake-ups",
+              "wakeup_points": "Interruptions: points lost per extra wake-up",
+              "awake_free_minutes": "Interruptions: free minutes awake",
+              "awake_points_per_minute": "Interruptions: points lost per extra minute awake",
+              "wakeup_min_minutes": "Interruptions: minutes awake that count as a wake-up",
+              "band_low": "Band: lowest score for Low",
+              "band_ok": "Band: lowest score for OK",
+              "band_high": "Band: lowest score for High",
+              "band_very_high": "Band: lowest score for Very High"
+            }
+          }
+        }
+      }
+    },
+    "error": {
+      "invalid_formula": "One of the formula constants is outside its allowed range, or the band limits are not in rising order."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "sleep_score": {
+        "name": "Sleep score"
+      },
+      "duration_points": {
+        "name": "Duration points"
+      },
+      "bedtime_points": {
+        "name": "Bedtime points"
+      },
+      "interruptions_points": {
+        "name": "Interruptions points"
+      },
+      "band": {
+        "name": "Sleep score band",
+        "state": {
+          "very_low": "Very Low",
+          "low": "Low",
+          "ok": "OK",
+          "high": "High",
+          "very_high": "Very High"
+        }
+      },
+      "time_asleep": {
+        "name": "Time asleep"
+      },
+      "bedtime_deviation": {
+        "name": "Bedtime compared with usual"
+      },
+      "wakeups": {
+        "name": "Wake-ups"
+      },
+      "time_awake": {
+        "name": "Time awake"
+      },
+      "sleeping_heart_rate": {
+        "name": "Sleeping heart rate"
+      },
+      "sleeping_heart_rate_lowest": {
+        "name": "Lowest sleeping heart rate"
+      }
+    }
+  },
+  "services": {
+    "recalculate": {
+      "name": "Recalculate",
+      "description": "Scores every stored night again with the current constants."
+    }
+  }
+}

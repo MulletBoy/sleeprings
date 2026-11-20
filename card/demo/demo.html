@@ -1,0 +1,268 @@
+<title>SleepRings Card Demo</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+  /* Layout: a short intro and two controls, then a grid of mock dashboards, each showing the card in a different theme. */
+  :root {
+    --bg: #f3f2f8;
+    --fg: #1d1a2b;
+    --muted: #625d78;
+    --line: #d9d6e6;
+    --accent: #5b55d6;
+    --control: #ffffff;
+    --font-display: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14121d; --fg: #eceaf6; --muted: #a29dba; --line: #322e45; --accent: #a59fff; --control: #1f1c2c;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14121d; --fg: #eceaf6; --muted: #a29dba; --line: #322e45; --accent: #a59fff; --control: #1f1c2c;
+    color-scheme: dark;
+  }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.5;
+    padding-block: 28px 48px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
+  h1 { font-family: var(--font-display); font-size: 26px; font-weight: 600; margin: 0; text-wrap: balance; }
+  .lede { margin: 6px 0 0; color: var(--muted); max-width: 65ch; }
+  .controls { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: end; }
+  .control { display: flex; flex-direction: column; gap: 5px; }
+  .control > span { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+  .seg { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; background: var(--control); }
+  .seg button {
+    font: inherit; font-size: 13px; padding: 7px 12px; border: 0; background: none; color: var(--fg); cursor: pointer;
+  }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button[aria-pressed="true"] { background: var(--accent); color: var(--bg); font-weight: 600; }
+  .seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr)); gap: 18px; align-items: start; }
+  figure { margin: 0; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+  figcaption { font-size: 13px; color: var(--muted); }
+  figcaption b { color: var(--fg); font-weight: 600; }
+  /* Each frame imitates a Home Assistant dashboard in one theme; these colours are fixed on purpose. */
+  .frame { padding: 14px; border-radius: 14px; border: 1px solid var(--line); }
+  .frame[data-ha="light"] {
+    background: #f1f1f4; --ha-card-background: #ffffff; --primary-text-color: #1c1c1e;
+    --secondary-text-color: #6b6b70; --divider-color: rgba(0, 0, 0, 0.12);
+  }
+  .frame[data-ha="dark"] {
+    background: #111113; --ha-card-background: #1c1c1e; --primary-text-color: #e6e6e8;
+    --secondary-text-color: #9b9ba1; --divider-color: rgba(255, 255, 255, 0.12);
+  }
+  .frame[data-ha="synth"] {
+    background: #0b0318; --ha-card-background: rgba(22, 8, 43, 0.94); --primary-text-color: #f1e8ff;
+    --secondary-text-color: #b9a6d6; --divider-color: #3b1c66;
+  }
+  .narrow { max-width: 300px; }
+  .wide { grid-column: 1 / -1; width: 100%; }
+  .wide .frame { overflow-x: auto; }
+  .note { font-size: 13px; color: var(--muted); max-width: 65ch; margin: 0; }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>SleepRings card</h1>
+    <p class="lede">The real card bundle with made-up sample nights. Each frame is a mock Home Assistant dashboard in a different theme or width. Hover or tap a history bar to read that night.</p>
+  </header>
+
+  <div class="controls">
+    <div class="control">
+      <span id="lbl-night">Sample night</span>
+      <div class="seg" role="group" aria-labelledby="lbl-night" id="scenario">
+        <button type="button" data-v="great" aria-pressed="true">Great</button>
+        <button type="button" data-v="restless" aria-pressed="false">Restless</button>
+        <button type="button" data-v="late" aria-pressed="false">Late and short</button>
+        <button type="button" data-v="empty" aria-pressed="false">No data</button>
+      </div>
+    </div>
+    <div class="control">
+      <span id="lbl-ring">Ring style</span>
+      <div class="seg" role="group" aria-labelledby="lbl-ring" id="ring">
+        <button type="button" data-v="mixed" aria-pressed="true">Both</button>
+        <button type="button" data-v="concentric" aria-pressed="false">Three rings</button>
+        <button type="button" data-v="segmented" aria-pressed="false">One split ring</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+  <p class="note">Three rings: Duration, Bedtime and Interruptions each fill to their own maximum. One split ring: a single 100-point ring divided 50 / 30 / 20.</p>
+</div>
+
+<script type="module">
+/*BUNDLE*/
+</script>
+<script type="module">
+  // Stand-in for Home Assistant's <ha-card>.
+  if (!customElements.get("ha-card")) {
+    customElements.define("ha-card", class extends HTMLElement {
+      constructor() {
+        super();
+        this.attachShadow({ mode: "open" }).innerHTML =
+          "<style>:host{display:block;box-sizing:border-box;border-radius:12px;" +
+          "background:var(--ha-card-background,#fff);border:1px solid var(--ha-card-border-color,var(--divider-color,#ddd))}</style><slot></slot>";
+      }
+    });
+  }
+
+  // Deterministic sample data, invented for this page. None of it is from a real person.
+  const rng = (seed) => () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+  const iso = (ms) => new Date(ms).toISOString().replace(".000Z", "+00:00");
+
+  function makeStages(startMs, asleepMin, wakes, seed) {
+    const rand = rng(seed);
+    const pattern = ["core", "deep", "core", "rem"];
+    const range = { core: [18, 45], deep: [14, 38], rem: [10, 32] };
+    const asleep = [];
+    let total = 0;
+    for (let i = 0; total < asleepMin; i++) {
+      const stage = pattern[i % 4];
+      // Deep sleep thins out late in the night.
+      if (stage === "deep" && total > asleepMin * 0.6 && rand() < 0.7) continue;
+      const [lo, hi] = range[stage];
+      const minutes = Math.min(asleepMin - total, Math.round(lo + rand() * (hi - lo)));
+      asleep.push([stage, minutes]);
+      total += minutes;
+    }
+    const every = Math.max(1, Math.floor(asleep.length / (wakes.length + 1)));
+    const out = [];
+    let at = startMs;
+    let wake = 0;
+    asleep.forEach(([stage, minutes], index) => {
+      out.push({ stage, start: iso(at), end: iso((at += minutes * 60000)) });
+      if (wake < wakes.length && (index + 1) % every === 0 && index < asleep.length - 1) {
+        out.push({ stage: "awake", start: iso(at), end: iso((at += wakes[wake++] * 60000)) });
+      }
+    });
+    return out;
+  }
+
+  function makeHistory(lastNight, lastScore, parts) {
+    const rand = rng(7);
+    const [y, m, d] = lastNight.split("-").map(Number);
+    const history = [];
+    for (let back = 29; back >= 0; back--) {
+      if (back === 11 || back === 19) continue; // nights without a recording
+      const day = new Date(Date.UTC(y, m - 1, d - back)).toISOString().slice(0, 10);
+      if (back === 0) { history.push({ night: day, score: lastScore, d: parts[0], b: parts[1], i: parts[2] }); continue; }
+      const roll = rand();
+      const score = roll < 0.08 ? 35 + Math.round(rand() * 20) : roll < 0.3 ? 62 + Math.round(rand() * 18) : 82 + Math.round(rand() * 17);
+      const dd = Math.min(50, Math.round(score * 0.52));
+      const ii = Math.min(20, Math.round(score * 0.2));
+      history.push({ night: day, score, d: dd, b: Math.max(0, Math.min(30, score - dd - ii)), i: ii });
+    }
+    return history;
+  }
+
+  // The newest sample night is "today" (in UTC, the demo's time zone); one scenario is a day old.
+  const dayOffset = (days) => new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+  const NIGHT = dayOffset(0);
+  const at = (h, min) => Date.UTC(2030, 2, h >= 12 ? 9 : 10, h, min);
+  const SCENARIOS = {
+    great: { score: 99, band: "very_high", parts: [48.9, 30, 20], asleep: 462, dev: -12, wakes: [3, 2], start: at(23, 14), onset: 674, seed: 3, hr: [49, 43, [55, 51, 49, 47, 46, 48, 50]] },
+    restless: { score: 84, band: "high", parts: [41.4, 28.4, 14.6], asleep: 398, dev: 24, wakes: [3, 2, 5, 1, 4, 2, 6], start: at(23, 41), onset: 701, seed: 11, hr: [54, 46, [60, 56, 53, 51, 52, 55, 54]] },
+    late: { score: 55, band: "low", parts: [22.1, 12.5, 20], asleep: 318, dev: 95, wakes: [2, 4], start: at(1, 5), onset: 785, seed: 5, night: dayOffset(1), hr: [58, 51, [64, 60, 57, 55, 56]] },
+  };
+
+  function makeHass(name) {
+    const s = SCENARIOS[name];
+    const entity = s
+      ? {
+          entity_id: "sensor.sample_sleep_score",
+          state: String(s.score),
+          attributes: {
+            night: s.night ?? NIGHT,
+            band: s.band,
+            duration_points: s.parts[0],
+            bedtime_points: s.parts[1],
+            interruptions_points: s.parts[2],
+            asleep_minutes: s.asleep,
+            bedtime_deviation_minutes: s.dev,
+            wakeups: s.wakes.length,
+            awake_minutes: s.wakes.reduce((a, b) => a + b, 0),
+            stages: makeStages(s.start, s.asleep, s.wakes, s.seed),
+            history: makeHistory(s.night ?? NIGHT, s.score, s.parts.map(Math.round)),
+            model_version: "v5",
+            duration_goal_hours: 8.3,
+            onset_minutes: s.onset,
+            usual_onset_minutes: s.onset - s.dev,
+            heart_rate_average: s.hr[0],
+            heart_rate_lowest: s.hr[1],
+            heart_rate_hours: s.hr[2].map((mean, n) => ({ start: iso(s.start + (n + 1) * 3600000), mean, min: mean - 4 - (n % 3), max: mean + 7 + ((n * 5) % 9) })),
+          },
+        }
+      : { entity_id: "sensor.sample_sleep_score", state: "unknown", attributes: {} };
+    return { states: { [entity.entity_id]: entity }, locale: { language: "en-GB" }, config: { time_zone: "UTC" } };
+  }
+
+  const FRAMES = [
+    { ha: "synth", title: "Synthwave (default)", sub: "one column", preset: "synthwave", ring: "concentric" },
+    { ha: "light", title: "Theme preset", sub: "follows a light theme", preset: "theme", ring: "concentric" },
+    { ha: "dark", title: "Theme preset", sub: "follows a dark theme", preset: "theme", ring: "segmented" },
+    { ha: "synth", title: "Two columns wide", sub: "about 760 px", preset: "synthwave", ring: "concentric", wide: 760 },
+    { ha: "synth", title: "Three columns wide", sub: "about 1100 px (needs a wide screen)", preset: "synthwave", ring: "concentric", wide: 1120 },
+    { ha: "light", title: "Two columns wide", sub: "theme preset, light", preset: "theme", ring: "concentric", wide: 760 },
+    { ha: "synth", title: "Narrow column", sub: "300 px, rings stack above the rows", preset: "synthwave", ring: "concentric", narrow: true },
+    { ha: "dark", title: "Health preset", sub: "Apple-like colours on a dark theme", preset: "health", ring: "segmented" },
+    { ha: "synth", title: "Rings and rows only", sub: "stages and history switched off", preset: "synthwave", ring: "segmented", compact: true },
+  ];
+
+  const grid = document.getElementById("grid");
+  const cards = FRAMES.map((f) => {
+    const figure = document.createElement("figure");
+    if (f.narrow) figure.className = "narrow";
+    if (f.wide) {
+      figure.className = "wide";
+      figure.style.maxWidth = f.wide + "px";
+    }
+    const caption = document.createElement("figcaption");
+    caption.innerHTML = `<b>${f.title}</b> · ${f.sub}`;
+    const frame = document.createElement("div");
+    frame.className = "frame";
+    frame.dataset.ha = f.ha;
+    const card = document.createElement("sleep-rings-card");
+    frame.append(card);
+    figure.append(caption, frame);
+    grid.append(figure);
+    return { card, f };
+  });
+
+  const state = { scenario: "great", ring: "mixed" };
+  function apply() {
+    const hass = makeHass(state.scenario);
+    for (const { card, f } of cards) {
+      card.setConfig({
+        type: "custom:sleep-rings-card",
+        entity: "sensor.sample_sleep_score",
+        preset: f.preset,
+        ring_style: state.ring === "mixed" ? f.ring : state.ring,
+        show_hypnogram: !f.compact,
+        show_history: !f.compact,
+      });
+      card.hass = hass;
+    }
+  }
+  for (const id of ["scenario", "ring"]) {
+    document.getElementById(id).addEventListener("click", (event) => {
+      const button = event.target.closest("button");
+      if (!button) return;
+      state[id] = button.dataset.v;
+      for (const b of event.currentTarget.querySelectorAll("button")) {
+        b.setAttribute("aria-pressed", String(b === button));
+      }
+      apply();
+    });
+  }
+  apply();
+</script>

@@ -1,0 +1,21 @@
+{
+  "domain": "sleep_rings",
+  "name": "SleepRings",
+  "after_dependencies": [
+    "frontend",
+    "recorder"
+  ],
+  "codeowners": [
+    "@MulletBoy"
+  ],
+  "config_flow": true,
+  "dependencies": [
+    "http"
+  ],
+  "documentation": "https://github.com/MulletBoy/sleeprings",
+  "integration_type": "service",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/MulletBoy/sleeprings/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}
