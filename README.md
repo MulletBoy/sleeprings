@@ -10,6 +10,7 @@
   <a href="https://github.com/MulletBoy/sleeprings/actions/workflows/validate.yml"><img src="https://img.shields.io/github/actions/workflow/status/MulletBoy/sleeprings/validate.yml?branch=main&style=flat-square&label=hassfest%20%2B%20HACS" alt="Hassfest and HACS validation"></a>
   <img src="https://img.shields.io/badge/Home%20Assistant-2026.11%2B-a46bff?style=flat-square" alt="Home Assistant 2026.11 or newer">
   <a href="LICENSE"><img src="https://img.shields.io/github/license/MulletBoy/sleeprings?style=flat-square&color=4df3ff" alt="MIT licence"></a>
+  <a href="https://ko-fi.com/mulletboy"><img src="https://img.shields.io/badge/Ko--fi-buy%20me%20a%20coffee-ffb224?style=flat-square&logo=kofi&logoColor=white" alt="Buy me a coffee on Ko-fi"></a>
 </p>
 
 <p align="center">
@@ -28,6 +29,9 @@ history.
 
 SleepRings is one install: a custom integration that calculates the score, and a card that the
 integration loads into your dashboards by itself.
+
+SleepRings is free and stays free. If it earns a place on your dashboard, you can
+[buy me a coffee on Ko-fi](https://ko-fi.com/mulletboy). ☕
 
 | Sleep stages | Sleeping heart rate | 30 nights |
 |---|---|---|
@@ -282,6 +286,12 @@ The images in this README are taken from `dist/demo.html?showcase`.
 
 The formula is in `custom_components/sleep_rings/formula.py`, with every constant in one
 dataclass and `MODEL_VERSION` next to it.
+
+## Support
+
+SleepRings is a hobby project and free to use. Bug reports, calibration nights and pull requests
+are the most useful support. If you would like to say thanks another way, there is
+[Ko-fi](https://ko-fi.com/mulletboy).
 
 ## Credits
 
