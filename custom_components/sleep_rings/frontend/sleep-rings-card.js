@@ -1654,6 +1654,29 @@ var Le = Qt`
   .hr-tip [class^="b-"] i {
     color: var(--band);
   }
+  /* Stage tooltip: the dot is the stage's own colour, the text stays readable. */
+  .hr-tip.s-awake,
+  .hr-tip.s-rem,
+  .hr-tip.s-core,
+  .hr-tip.s-deep {
+    color: #f4f1fa;
+  }
+  .hr-tip.s-awake i {
+    background: var(--_awake);
+    opacity: 1;
+  }
+  .hr-tip.s-rem i {
+    background: var(--_rem);
+    opacity: 1;
+  }
+  .hr-tip.s-core i {
+    background: var(--_core);
+    opacity: 1;
+  }
+  .hr-tip.s-deep i {
+    background: var(--_deep);
+    opacity: 1;
+  }
   .hr-legend {
     display: flex;
     flex-wrap: wrap;
