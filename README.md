@@ -79,7 +79,8 @@ What the card shows beside the rings:
 - **Sleeping heart rate**: the night's average, its low and the hourly trend.
 - A marker beside the date: **Today** when the night shown ended today, **Yesterday** (or
   "3 days ago") while no sleep has been recorded for today yet.
-- **Earlier nights**: the arrows beside the date step back and forward one recorded night, the
+- **Earlier nights**: the arrows beside the date step back and forward one day (a night with no
+  recording is shown as empty, not skipped), the
   date opens a date picker, and clicking a bar in the history opens that night. Stage timelines
   are kept from the day SleepRings 1.1 is installed (plus whatever your source still holds).
 - **Hover or tap** a sleep stage, an hour of the heart-rate chart or a history bar for its

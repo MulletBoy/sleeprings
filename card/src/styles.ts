@@ -629,8 +629,13 @@ export const styles = css`
     outline: 2px solid var(--_text);
     outline-offset: 1px;
   }
-  .night-col.missing {
-    cursor: default;
+  /* A night with no recording: a faint mark on the baseline, still clickable */
+  .night-col.missing::after {
+    content: "";
+    height: 2px;
+    border-radius: 1px;
+    background: var(--_text2);
+    opacity: 0.45;
   }
   .hr-legend b {
     font-weight: 400;

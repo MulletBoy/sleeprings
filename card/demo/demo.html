@@ -207,7 +207,7 @@
     // that agrees with its bar in the history.
     const callWS = async (message) => {
       const entry = entity.attributes.history.find((h) => h.night === message.night);
-      if (!entry) throw new Error("not found");
+      if (!entry) throw { code: "not_found", message: "No such night" };
       const seed = Number(message.night.replaceAll("-", "")) % 997;
       const rand = rng(seed);
       const asleep = Math.round(498 - Math.sqrt(Math.max(0, 50 - entry.d) / 3.1) * 60);

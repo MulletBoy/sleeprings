@@ -24,7 +24,7 @@ import { presetTiles, styleVars } from "./presets";
 import { styles } from "./styles";
 import type { HomeAssistant, SleepData, SleepRingsCardConfig, StageSpan } from "./types";
 
-export const CARD_VERSION = "1.1.0";
+export const CARD_VERSION = "1.1.1";
 const CARD_TAG = "sleep-rings-card";
 
 const PARTS = [
@@ -174,6 +174,7 @@ export class SleepRingsCard extends LitElement {
     let message = "";
     if (!config.entity) message = "Choose a sleep score entity in the card settings.";
     else if (!entity) message = `Entity not found: ${config.entity}`;
+    else if (earlier && data.score === null) message = "No sleep was recorded for this night.";
     else if (data.score === null) message = "No sleep score yet. It appears after the next recorded night.";
 
     const stages =
@@ -461,7 +462,10 @@ export class SleepRingsCard extends LitElement {
     }
     this._night = night;
     const entity = this._config?.entity;
-    if (!entity || !this.hass?.callWS) return;
+    if (!entity || !this.hass?.callWS) {
+      this._detail = readNight({ night }, null);
+      return;
+    }
     try {
       const result = await this.hass.callWS<Record<string, unknown>>({
         type: "sleep_rings/night",
@@ -474,10 +478,8 @@ export class SleepRingsCard extends LitElement {
         this._detail = readNight(result, Number.isFinite(score) ? score : null);
       }
     } catch {
-      if (this._night === night) {
-        this._night = null;
-        this._detail = null;
-      }
+      // Nothing stored for that date (the watch was not worn): show the day, empty.
+      if (this._night === night) this._detail = readNight({ night }, null);
     }
   }
 
@@ -488,16 +490,23 @@ export class SleepRingsCard extends LitElement {
     if (latest.night && !nights.includes(latest.night)) nights.push(latest.night);
     nights.sort();
     const current = this._night ?? latest.night ?? "";
-    const index = nights.indexOf(current);
-    const previous = index > 0 ? nights[index - 1] : undefined;
-    const next = index >= 0 && index < nights.length - 1 ? nights[index + 1] : undefined;
+    // Step one calendar day at a time, so a night without a recording is shown
+    // (empty) rather than silently skipped.
+    const first = nights[0] ?? current;
+    const last = nights[nights.length - 1] ?? current;
+    const shift = (days: number) => {
+      const day = parseNight(current);
+      day.setDate(day.getDate() + days);
+      return isoDate(day);
+    };
+    const previous = current > first ? shift(-1) : undefined;
+    const next = current < last ? shift(1) : undefined;
     const loading = this._night !== null && data.night !== this._night;
     const pick = (event: Event) => {
       const value = (event.target as HTMLInputElement).value;
       if (!value) return;
-      // The nearest recorded night on or before the chosen date, else the first one.
-      const onOrBefore = nights.filter((n) => n <= value);
-      void this._go(onOrBefore.length ? onOrBefore[onOrBefore.length - 1] : nights[0], latest.night);
+      // Exactly the chosen date, kept inside the range the history covers.
+      void this._go(value < first ? first : value > last ? last : value, latest.night);
     };
     const openPicker = (event: Event) => {
       const input = (event.currentTarget as HTMLElement).querySelector("input");
@@ -700,7 +709,12 @@ export class SleepRingsCard extends LitElement {
             <div class="night-cols">
               ${days.map((day) => {
                 const entry = byNight.get(day);
-                if (!entry) return html`<span class="night-col missing"></span>`;
+                if (!entry)
+                  return html`<button
+                    class="night-col missing ${day === viewing ? "current" : ""}"
+                    aria-label="${formatNight(day, language)}: no sleep recorded. Show this night."
+                    @click=${() => this._go(day, latestNight)}
+                  ></button>`;
                 const stacked = components && entry.d !== undefined && entry.b !== undefined && entry.i !== undefined;
                 return html`<button
                   class="night-col ${entry.estimated ? "estimated" : ""} ${day === viewing ? "current" : ""} ${this._selected === day ? "selected" : ""}"
