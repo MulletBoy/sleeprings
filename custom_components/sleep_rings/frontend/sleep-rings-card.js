@@ -2023,7 +2023,7 @@ var Le = Qt`
       transition: none;
     }
   }
-`, vt, Ue = "1.0.1", K = "sleep-rings-card", j = [
+`, vt, Ue = "1.1.0", K = "sleep-rings-card", j = [
   {
     key: "duration",
     label: "Duration",
