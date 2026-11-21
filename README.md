@@ -1,17 +1,46 @@
 # SleepRings
 
+<p align="center">
+  <img src="docs/hero.jpg" alt="SleepRings: an Apple-Watch-style sleep score for Home Assistant. The card shows three score rings, a scorecard, sleep stages, sleeping heart rate and a 30-night history." width="100%">
+</p>
+
+<p align="center">
+  <a href="https://github.com/MulletBoy/sleeprings/releases/latest"><img src="https://img.shields.io/github/v/release/MulletBoy/sleeprings?style=flat-square&color=ff2fd6&label=release" alt="Latest release"></a>
+  <a href="https://github.com/MulletBoy/sleeprings/actions/workflows/test.yml"><img src="https://img.shields.io/github/actions/workflow/status/MulletBoy/sleeprings/test.yml?branch=main&style=flat-square&label=tests" alt="Tests"></a>
+  <a href="https://github.com/MulletBoy/sleeprings/actions/workflows/validate.yml"><img src="https://img.shields.io/github/actions/workflow/status/MulletBoy/sleeprings/validate.yml?branch=main&style=flat-square&label=hassfest%20%2B%20HACS" alt="Hassfest and HACS validation"></a>
+  <img src="https://img.shields.io/badge/Home%20Assistant-2026.11%2B-a46bff?style=flat-square" alt="Home Assistant 2026.11 or newer">
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/MulletBoy/sleeprings?style=flat-square&color=4df3ff" alt="MIT licence"></a>
+</p>
+
+<p align="center">
+  <a href="#install">Install</a> ·
+  <a href="#whats-new">What's new</a> ·
+  <a href="#the-card">The card</a> ·
+  <a href="#the-formula-model-v5">The formula</a> ·
+  <a href="#how-accurate-is-it">Accuracy</a> ·
+  <a href="#privacy">Privacy</a>
+</p>
+
 A sleep score for Home Assistant in the style of the Apple Watch Sleep Score: 0 to 100, made of
 **Duration** (50), **Bedtime** consistency (30) and **Interruptions** (20), with a dashboard card
-that shows it as rings, a scorecard, last night's sleep stages and a 30-night history.
-
-![The SleepRings card, three columns wide](docs/card-wide.png)
-
-| Synthwave (default) | Follows a light theme | Follows a dark theme |
-|---|---|---|
-| ![Synthwave preset](docs/card-synthwave.png) | ![Theme preset on a light theme](docs/card-light.png) | ![Theme preset on a dark theme](docs/card-dark.png) |
+that shows it as rings, a scorecard, the night's sleep stages, sleeping heart rate and a 30-night
+history.
 
 SleepRings is one install: a custom integration that calculates the score, and a card that the
 integration loads into your dashboards by itself.
+
+| Sleep stages | Sleeping heart rate | 30 nights |
+|---|---|---|
+| <img src="docs/feature-stages.png" alt="Sleep stages timeline with a tooltip on one REM stretch, and the time in each stage" width="260"> | <img src="docs/feature-heart.png" alt="Sleeping heart rate chart with the hourly high, average and low" width="260"> | <img src="docs/feature-history.png" alt="30-night history, each bar stacked into Duration, Bedtime and Interruptions" width="260"> |
+| Hover or tap a stage for its times. Minutes and share of each stage below. | The night's average and low, with the hourly range. | Each night split into its three parts. Click a bar to open that night. |
+
+Three looks, and every colour can be changed:
+
+<p align="center">
+  <img src="docs/themes.jpg" alt="The card in the Synthwave preset, and in the Theme preset on a light and on a dark Home Assistant theme" width="100%">
+</p>
+
+<sub>The screenshots show invented sample nights, not anyone's sleep.</sub>
 
 > SleepRings is an independent project. It is not made by, affiliated with or endorsed by Apple.
 > watchOS does not expose its Sleep Score to other apps, so SleepRings estimates it from the sleep
@@ -42,6 +71,17 @@ Other sources can be added through a small adapter; see [Adding a source](#addin
 
 Manual install: copy `custom_components/sleep_rings` into your `config/custom_components` folder
 and restart.
+
+## What's new
+
+| Version | In short |
+|---|---|
+| **1.1.1** | A night with no recording (watch not worn) now shows as an empty day when you step through nights, where 1.1.0 skipped over it. |
+| **1.1.0** | **Go back in time:** arrows and a date picker beside the date, or click a bar in the history. **Hover or tap** a sleep stage, an hour of the heart-rate chart or a history bar for its detail. The **history** now stacks each night into Duration, Bedtime and Interruptions (`history_style: bands` brings the old look back). Stage timelines are kept for every night from this version on. |
+| **1.0.1** | Build and dependency updates only. Nothing changes in use. |
+| **1.0.0** | First release: the score (model v5), its sensors and long-term statistics, and the card with rings, scorecard, sleep stages, sleeping heart rate and history. |
+
+Full notes for every version are on the [releases page](https://github.com/MulletBoy/sleeprings/releases).
 
 ## The card
 
@@ -237,6 +277,8 @@ npm install
 npm run build                          # also copies the bundle into the integration
 node demo/build-demo.mjs               # dist/demo.html: the card with sample nights
 ```
+
+The images in this README are taken from `dist/demo.html?showcase`.
 
 The formula is in `custom_components/sleep_rings/formula.py`, with every constant in one
 dataclass and `MODEL_VERSION` next to it.

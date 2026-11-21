@@ -67,7 +67,112 @@
   .wide { grid-column: 1 / -1; width: 100%; }
   .wide .frame { overflow-x: auto; }
   .note { font-size: 13px; color: var(--muted); max-width: 65ch; margin: 0; }
+
+  /* Showcase mode (demo.html?showcase): branded scenes used for the README images. */
+  #showcase { display: flex; flex-direction: column; gap: 40px; width: 1600px; }
+  .shot {
+    position: relative;
+    width: 1600px;
+    box-sizing: border-box;
+    padding: 64px 72px 72px;
+    overflow: hidden;
+    color: #f1e8ff;
+    background:
+      radial-gradient(circle at 12% -10%, rgba(164, 107, 255, 0.55) 0%, transparent 42%),
+      radial-gradient(circle at 96% 108%, rgba(255, 47, 214, 0.38) 0%, transparent 40%),
+      radial-gradient(circle at 70% -20%, rgba(77, 243, 255, 0.18) 0%, transparent 38%),
+      linear-gradient(165deg, #0b0318 0%, #170a2e 55%, #0b0318 100%);
+  }
+  /* A faint synthwave floor grid fading into the horizon */
+  .shot::after {
+    content: "";
+    position: absolute;
+    left: -20%;
+    right: -20%;
+    bottom: -40px;
+    height: 300px;
+    background:
+      repeating-linear-gradient(90deg, rgba(255, 47, 214, 0.22) 0 1px, transparent 1px 80px),
+      repeating-linear-gradient(0deg, rgba(255, 47, 214, 0.22) 0 1px, transparent 1px 44px);
+    transform: perspective(520px) rotateX(62deg);
+    transform-origin: bottom;
+    -webkit-mask-image: linear-gradient(to top, #000 0%, transparent 85%);
+    mask-image: linear-gradient(to top, #000 0%, transparent 85%);
+    pointer-events: none;
+  }
+  .shot > * { position: relative; z-index: 1; }
+  .brand { display: flex; align-items: center; gap: 22px; }
+  .brand svg { width: 92px; height: 92px; filter: drop-shadow(0 0 18px rgba(255, 47, 214, 0.45)); }
+  .brand h2 { margin: 0; font-size: 58px; line-height: 1; font-weight: 800; letter-spacing: -0.02em; }
+  .brand h2 span {
+    background: linear-gradient(90deg, #ffb224, #ff2fd6 55%, #a46bff);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .brand p { margin: 10px 0 0; font-size: 22px; color: #b9a6d6; }
+  .chips { display: flex; flex-wrap: wrap; gap: 10px; margin: 26px 0 34px; }
+  .chips span {
+    padding: 7px 14px;
+    border-radius: 999px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #f1e8ff;
+    border: 1px solid rgba(185, 166, 214, 0.35);
+    background: rgba(11, 3, 24, 0.45);
+  }
+  .glass {
+    padding: 18px;
+    border-radius: 26px;
+    border: 1px solid rgba(185, 166, 214, 0.28);
+    background: rgba(11, 3, 24, 0.5);
+    box-shadow: 0 40px 90px rgba(255, 47, 214, 0.22), 0 10px 30px rgba(0, 0, 0, 0.5);
+  }
+  .glass[data-ha="light"] { background: #f1f1f4; }
+  .glass[data-ha="dark"] { background: #111113; }
+  .shot h3 { margin: 0 0 14px; font-size: 20px; font-weight: 700; }
+  .shot h3 small { font-weight: 400; color: #b9a6d6; font-size: 16px; margin-left: 8px; }
+  .trio { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; align-items: start; }
+  body.showcase { padding: 0; background: #05010c; }
 </style>
+
+<div id="showcase" hidden>
+  <section class="shot" id="hero">
+    <div class="brand">
+      <svg viewBox="0 0 96 96" aria-hidden="true">
+        <defs>
+          <linearGradient id="lg1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffb224"/><stop offset="1" stop-color="#ff7a3d"/></linearGradient>
+          <linearGradient id="lg2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff2fd6"/><stop offset="1" stop-color="#a46bff"/></linearGradient>
+          <linearGradient id="lg3" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5df0a8"/><stop offset="1" stop-color="#4df3ff"/></linearGradient>
+        </defs>
+        <g fill="none" stroke-width="8" stroke-linecap="round" transform="rotate(-90 48 48)">
+          <circle cx="48" cy="48" r="40" stroke="rgba(185,166,214,0.18)"/>
+          <circle cx="48" cy="48" r="29" stroke="rgba(185,166,214,0.18)"/>
+          <circle cx="48" cy="48" r="18" stroke="rgba(185,166,214,0.18)"/>
+          <circle cx="48" cy="48" r="40" stroke="url(#lg1)" stroke-dasharray="226 251.3"/>
+          <circle cx="48" cy="48" r="29" stroke="url(#lg2)" stroke-dasharray="142 182.2"/>
+          <circle cx="48" cy="48" r="18" stroke="url(#lg3)" stroke-dasharray="75 113.1"/>
+        </g>
+      </svg>
+      <div>
+        <h2>Sleep<span>Rings</span></h2>
+        <p>An Apple-Watch-style sleep score for Home Assistant</p>
+      </div>
+    </div>
+    <div class="chips">
+      <span>Score rings</span><span>Sleep stages</span><span>Sleeping heart rate</span><span>30-night history</span><span>Go back night by night</span>
+    </div>
+    <div class="glass frame" data-ha="synth" id="hero-card"></div>
+  </section>
+
+  <section class="shot" id="themes">
+    <div class="trio">
+      <div><h3>Synthwave <small>the default</small></h3><div class="glass frame" data-ha="synth" id="theme-synth"></div></div>
+      <div><h3>Theme <small>follows a light theme</small></h3><div class="glass frame" data-ha="light" id="theme-light"></div></div>
+      <div><h3>Theme <small>follows a dark theme</small></h3><div class="glass frame" data-ha="dark" id="theme-dark"></div></div>
+    </div>
+  </section>
+</div>
 
 <div class="wrap">
   <header>
@@ -297,4 +402,21 @@
     });
   }
   apply();
+
+  // Showcase mode: the branded scenes the README images are taken from.
+  if (new URLSearchParams(location.search).has("showcase")) {
+    document.body.classList.add("showcase");
+    document.querySelector(".wrap").hidden = true;
+    document.getElementById("showcase").hidden = false;
+    const place = (id, config) => {
+      const card = document.createElement("sleep-rings-card");
+      card.setConfig({ type: "custom:sleep-rings-card", entity: "sensor.sample_sleep_score", ...config });
+      card.hass = makeHass("great");
+      document.getElementById(id).append(card);
+    };
+    place("hero-card", { preset: "synthwave" });
+    place("theme-synth", { preset: "synthwave" });
+    place("theme-light", { preset: "theme" });
+    place("theme-dark", { preset: "theme" });
+  }
 </script>
