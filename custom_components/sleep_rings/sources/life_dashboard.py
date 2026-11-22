@@ -1,9 +1,11 @@
 """Life Dashboard (https://github.com/owen282000/life-dashboard-ha).
 
 Reads ``sensor.<name>_last_sleep_asleep``: the newest main night, with the
-stage timeline in its attributes. Past nights for seeding come from the
-integration's in-memory ledger; that is not a public API, so every access is
-guarded and a failure simply means "no seed".
+stage timeline in its attributes. Past nights for seeding come from the action
+``life_dashboard.get_sleep_nights`` (Life Dashboard 1.4.0 and newer). Older
+versions have no such action; there the integration's in-memory ledger is read,
+which is not a public API, so every access is guarded and a failure simply
+means "no seed".
 """
 
 from __future__ import annotations
@@ -13,7 +15,9 @@ from collections.abc import Mapping
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
+import voluptuous as vol
 from homeassistant.core import HomeAssistant, State
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
 from homeassistant.util import dt as dt_util
 
@@ -35,6 +39,11 @@ from ..night import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+LIFE_DASHBOARD_DOMAIN = "life_dashboard"
+ACTION_GET_SLEEP_NIGHTS = "get_sleep_nights"
+# Sessions taken from one answer of the action: far more than Life Dashboard keeps.
+MAX_ACTION_SESSIONS = 2000
 
 # Fewer whole hours than this is not enough for a sleeping average.
 MIN_HEART_RATE_HOURS = 2
@@ -79,7 +88,11 @@ class LifeDashboardSource:
 
     def night_from_state(self, state: State) -> Night | None:
         """Build a night from the entity's attributes."""
-        attributes = state.attributes
+        return self._night_from_attributes(state.attributes)
+
+    @staticmethod
+    def _night_from_attributes(attributes: Mapping[str, Any]) -> Night | None:
+        """A night in the format of the sleep entity's attributes."""
         start = _parse_datetime(attributes.get("start"))
         end = _parse_datetime(attributes.get("end"))
         asleep = _number(attributes.get("asleep_minutes"))
@@ -111,12 +124,49 @@ class LifeDashboardSource:
         )
 
     async def async_past_nights(self, hass: HomeAssistant, entity_id: str) -> list[Night]:
-        """Read earlier nights from Life Dashboard's ledger, if it is reachable."""
+        """Read earlier nights from Life Dashboard: its action, or else its ledger."""
+        nights = await self._nights_from_action(hass, entity_id)
+        if nights is not None:
+            return nights
         try:
             return self._past_nights(hass, entity_id)
         except Exception:  # noqa: BLE001 - undocumented internals may change shape
             _LOGGER.debug("Could not read past nights from Life Dashboard", exc_info=True)
             return []
+
+    async def _nights_from_action(self, hass: HomeAssistant, entity_id: str) -> list[Night] | None:
+        """Past nights from ``life_dashboard.get_sleep_nights``; None when that cannot be used.
+
+        The action returns every session in the format of the sleep entity's
+        attributes, so the same parsing applies, and the main night per day is
+        picked here. None sends the caller to the ledger of an older version.
+        """
+        if not hass.services.has_service(LIFE_DASHBOARD_DOMAIN, ACTION_GET_SLEEP_NIGHTS):
+            return None
+        registry_entry = er.async_get(hass).async_get(entity_id)
+        if registry_entry is None or registry_entry.config_entry_id is None:
+            return None
+        try:
+            response = await hass.services.async_call(
+                LIFE_DASHBOARD_DOMAIN,
+                ACTION_GET_SLEEP_NIGHTS,
+                {"config_entry": registry_entry.config_entry_id},
+                blocking=True,
+                return_response=True,
+            )
+        except HomeAssistantError, vol.Invalid:
+            _LOGGER.debug("Life Dashboard did not return past nights", exc_info=True)
+            return None
+        raw = response.get("nights") if isinstance(response, Mapping) else None
+        if not isinstance(raw, list):
+            return None
+        sessions = [
+            night
+            for item in raw[-MAX_ACTION_SESSIONS:]
+            if isinstance(item, Mapping)
+            and (night := self._night_from_attributes(item)) is not None
+        ]
+        return main_nights(sessions)
 
     async def async_heart_rate(
         self, hass: HomeAssistant, entity_id: str, start: datetime, end: datetime

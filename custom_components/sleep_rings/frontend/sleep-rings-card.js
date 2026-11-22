@@ -2028,7 +2028,7 @@ var Le = Qt`
       transition: none;
     }
   }
-`, bt, Ue = "1.1.1", Q = "sleep-rings-card", F = [
+`, bt, Ue = "1.2.0", Q = "sleep-rings-card", F = [
   {
     key: "duration",
     label: "Duration",

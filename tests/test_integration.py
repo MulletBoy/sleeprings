@@ -8,8 +8,9 @@ from unittest.mock import patch
 
 import pytest
 from homeassistant.config_entries import SOURCE_USER
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
 from homeassistant.data_entry_flow import FlowResultType, InvalidData
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant.common import MockConfigEntry
 
@@ -315,6 +316,135 @@ async def test_life_dashboard_ledger_is_read_defensively(hass: HomeAssistant) ->
     assert [s.stage for s in nights[0].stages] == ["core", "deep", "core"]
 
     ld_entry.runtime_data = SimpleNamespace(history=None)
+    assert await source.async_past_nights(hass, SOURCE_ENTITY) == []
+
+
+async def test_past_nights_come_from_life_dashboards_action(hass: HomeAssistant) -> None:
+    """Life Dashboard 1.4.0 and newer: the action is asked, not the ledger."""
+    source = LifeDashboardSource()
+    ld_entry = MockConfigEntry(domain="life_dashboard")
+    ld_entry.add_to_hass(hass)
+    er.async_get(hass).async_get_or_create(
+        "sensor",
+        "life_dashboard",
+        "x_last_sleep_asleep",
+        suggested_object_id="phone_last_sleep_asleep",
+        config_entry=ld_entry,
+    )
+    # A ledger that must not be touched while the action answers.
+    ld_entry.runtime_data = SimpleNamespace(history=None)
+    answer: dict = {
+        "nights": [
+            {
+                "night": "2030-03-01",
+                "start": "2030-02-28T23:00:00+00:00",
+                "end": "2030-03-01T07:00:00+00:00",
+                "source": "com.watch",
+                "asleep_minutes": 450.0,
+                "awake_minutes": 12.0,
+                "stages": [],
+            },
+            {
+                "night": "2030-03-02",
+                "start": "2030-03-01T23:10:00+00:00",
+                "end": "2030-03-02T07:05:00+00:00",
+                "asleep_minutes": 440.0,
+                "deep_minutes": 60.0,
+                "awake_minutes": 10.0,
+                "stages": [
+                    {
+                        "stage": "light",
+                        "start": "2030-03-01T23:20:00+00:00",
+                        "end": "2030-03-02T01:00:00+00:00",
+                    },
+                    {
+                        "stage": "deep",
+                        "start": "2030-03-02T01:00:00+00:00",
+                        "end": "2030-03-02T02:00:00+00:00",
+                    },
+                    {
+                        "stage": "awake",
+                        "start": "2030-03-02T02:00:00+00:00",
+                        "end": "2030-03-02T02:10:00+00:00",
+                    },
+                    {
+                        "stage": "rem",
+                        "start": "2030-03-02T02:10:00+00:00",
+                        "end": "2030-03-02T07:05:00+00:00",
+                    },
+                ],
+            },
+            # A nap on the same wake date, and a session without stages or minutes.
+            {
+                "night": "2030-03-02",
+                "start": "2030-03-02T13:00:00+00:00",
+                "end": "2030-03-02T13:40:00+00:00",
+                "asleep_minutes": 35.0,
+                "stages": [],
+            },
+            {
+                "night": "2030-03-03",
+                "start": "2030-03-02T23:00:00+00:00",
+                "end": "2030-03-03T07:00:00+00:00",
+                "stages": [],
+            },
+            "not a night",
+        ]
+    }
+    calls: list[dict] = []
+
+    async def get_sleep_nights(call: ServiceCall) -> dict:
+        calls.append(dict(call.data))
+        if isinstance(answer.get("error"), Exception):
+            raise answer["error"]
+        return answer
+
+    hass.services.async_register(
+        "life_dashboard",
+        "get_sleep_nights",
+        get_sleep_nights,
+        supports_response=SupportsResponse.ONLY,
+    )
+
+    nights = await source.async_past_nights(hass, SOURCE_ENTITY)
+    assert calls == [{"config_entry": ld_entry.entry_id}]
+    # One main night per wake date, oldest first; the nap and the bare session are out.
+    assert [(n.wake_date.isoformat(), n.asleep_minutes) for n in nights] == [
+        ("2030-03-01", 450.0),
+        ("2030-03-02", 440.0),
+    ]
+    assert list(nights[0].stages) == []
+    assert nights[0].awake_minutes == 12.0
+    assert [s.stage for s in nights[1].stages] == ["core", "deep", "awake", "rem"]
+
+    # An answer that is not what was agreed, or an error: back to the ledger.
+    t0 = datetime(2030, 3, 1, 12, 0, tzinfo=UTC).timestamp()
+    ld_entry.runtime_data = SimpleNamespace(
+        history=SimpleNamespace(
+            ledger=SimpleNamespace(
+                sleep={
+                    "nights": {
+                        "main": {
+                            "day": "2030-03-02",
+                            "start": t0,
+                            "end": t0 + 28800,
+                            "asleep": 401.0,
+                        }
+                    }
+                }
+            )
+        )
+    )
+    good = answer["nights"]
+    answer["nights"] = "nonsense"
+    assert [n.asleep_minutes for n in await source.async_past_nights(hass, SOURCE_ENTITY)] == [401]
+    answer["nights"] = good
+    answer["error"] = ServiceValidationError("no such phone")
+    assert [n.asleep_minutes for n in await source.async_past_nights(hass, SOURCE_ENTITY)] == [401]
+
+    # No nights kept yet is an answer too, and not a reason to go to the ledger.
+    del answer["error"]
+    answer["nights"] = []
     assert await source.async_past_nights(hass, SOURCE_ENTITY) == []
 
 

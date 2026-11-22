@@ -55,7 +55,8 @@ Three looks, and every colour can be changed:
 - Home Assistant 2026.11 or newer.
 - Sleep data with a start time and, ideally, sleep stages. Today SleepRings supports one source:
   [Life Dashboard](https://github.com/owen282000/life-dashboard-ha) with its iOS companion app,
-  which sends Apple Health data to Home Assistant.
+  which sends Apple Health data to Home Assistant. Version 1.4.0 or newer is recommended: from there
+  SleepRings reads past nights through an action Life Dashboard provides for it.
 - The stock Home Assistant companion app is not enough: it only reports totals, with no time you
   fell asleep and no stages.
 
@@ -80,6 +81,7 @@ and restart.
 
 | Version | In short |
 |---|---|
+| **1.2.0** | Past nights are now read through Life Dashboard's own action, `life_dashboard.get_sleep_nights`, added to Life Dashboard 1.4.0 for this purpose, where SleepRings used to read its internals. Nothing changes in what you see, and older Life Dashboard versions keep working the old way for now. Update Life Dashboard to 1.4.0 or newer when you can. |
 | **1.1.1** | A night with no recording (watch not worn) now shows as an empty day when you step through nights, where 1.1.0 skipped over it. |
 | **1.1.0** | **Go back in time:** arrows and a date picker beside the date, or click a bar in the history. **Hover or tap** a sleep stage, an hour of the heart-rate chart or a history bar for its detail. The **history** now stacks each night into Duration, Bedtime and Interruptions (`history_style: bands` brings the old look back). Stage timelines are kept for every night from this version on. |
 | **1.0.1** | Build and dependency updates only. Nothing changes in use. |
