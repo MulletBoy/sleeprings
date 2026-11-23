@@ -15,6 +15,7 @@
 
 <p align="center">
   <a href="#install">Install</a> ·
+  <a href="#the-rings-family">The Rings family</a> ·
   <a href="#whats-new">What's new</a> ·
   <a href="#the-card">The card</a> ·
   <a href="#the-formula-model-v5">The formula</a> ·
@@ -25,7 +26,8 @@
 A sleep score for Home Assistant in the style of the Apple Watch Sleep Score: 0 to 100, made of
 **Duration** (50), **Bedtime** consistency (30) and **Interruptions** (20), with a dashboard card
 that shows it as rings, a scorecard, the night's sleep stages, sleeping heart rate and a 30-night
-history.
+history. It is part of the [Rings family](#the-rings-family), alongside
+[VitalRings](https://github.com/MulletBoy/vitalrings).
 
 SleepRings is one install: a custom integration that calculates the score, and a card that the
 integration loads into your dashboards by itself.
@@ -49,6 +51,19 @@ Three looks, and every colour can be changed:
 > SleepRings is an independent project. It is not made by, affiliated with or endorsed by Apple.
 > watchOS does not expose its Sleep Score to other apps, so SleepRings estimates it from the sleep
 > data Apple Health does share. See [How accurate is it?](#how-accurate-is-it)
+
+## The Rings family
+
+SleepRings is one of a family of Home Assistant apps that turn the health data from your watch
+into rings you want to close. They share one look, install the same way and sit side by side on
+a dashboard. Each works on its own; together they cover your night and your day.
+
+| | App | What it scores |
+|---|---|---|
+| <img src="custom_components/sleep_rings/brand/icon.png" alt="" width="44"> | **SleepRings** (you are here) | Your night: an Apple-Watch-style sleep score from duration, bedtime and interruptions, with sleep stages, sleeping heart rate and a 30-night history. |
+| <img src="https://raw.githubusercontent.com/MulletBoy/vitalrings/main/custom_components/vital_rings/brand/icon.png" alt="" width="44"> | **[VitalRings](https://github.com/MulletBoy/vitalrings)** | Your body: heart, recovery and breathing, sleeping heart rate, blood oxygen and VO2 max, with heart rate, VO2 max and weight charts. |
+
+More may follow.
 
 ## What you need
 
