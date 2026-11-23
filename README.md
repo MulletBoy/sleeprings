@@ -27,7 +27,8 @@ A sleep score for Home Assistant in the style of the Apple Watch Sleep Score: 0 
 **Duration** (50), **Bedtime** consistency (30) and **Interruptions** (20), with a dashboard card
 that shows it as rings, a scorecard, the night's sleep stages, sleeping heart rate and a 30-night
 history. It is part of the [Rings family](#the-rings-family), alongside
-[VitalRings](https://github.com/MulletBoy/vitalrings).
+[VitalRings](https://github.com/MulletBoy/vitalrings) and
+[ActiveRings](https://github.com/MulletBoy/activerings).
 
 SleepRings is one install: a custom integration that calculates the score, and a card that the
 integration loads into your dashboards by itself.
@@ -62,6 +63,7 @@ a dashboard. Each works on its own; together they cover your night and your day.
 |---|---|---|
 | <img src="custom_components/sleep_rings/brand/icon.png" alt="" width="44"> | **SleepRings** (you are here) | Your night: an Apple-Watch-style sleep score from duration, bedtime and interruptions, with sleep stages, sleeping heart rate and a 30-night history. |
 | <img src="https://raw.githubusercontent.com/MulletBoy/vitalrings/main/custom_components/vital_rings/brand/icon.png" alt="" width="44"> | **[VitalRings](https://github.com/MulletBoy/vitalrings)** | Your body: heart, recovery and breathing, sleeping heart rate, blood oxygen and VO2 max, with heart rate, VO2 max and weight charts. |
+| <img src="https://raw.githubusercontent.com/MulletBoy/activerings/main/custom_components/active_rings/brand/icon.png" alt="" width="44"> | **[ActiveRings](https://github.com/MulletBoy/activerings)** | Your movement: steps, exercise and active energy today, and active minutes, active days and your focus activity over the last seven days, with steps and exercise charts and your workouts. |
 
 More may follow.
 
