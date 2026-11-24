@@ -71,9 +71,12 @@ More may follow.
 
 - Home Assistant 2026.11 or newer.
 - Sleep data with a start time and, ideally, sleep stages. Today SleepRings supports one source:
-  [Life Dashboard](https://github.com/owen282000/life-dashboard-ha) with its iOS companion app,
-  which sends Apple Health data to Home Assistant. Version 1.4.0 or newer is recommended: from there
-  SleepRings reads past nights through an action Life Dashboard provides for it.
+  [Life Dashboard](https://github.com/owen282000/life-dashboard-ha) **1.4.0 or newer** with its
+  iOS companion app, which sends Apple Health data to Home Assistant. SleepRings reads past
+  nights through an action Life Dashboard has from that version on
+  (`life_dashboard.get_sleep_nights`). With an older Life Dashboard the score still works, but
+  the history is not filled with the nights from before you installed SleepRings: it starts
+  with your next night.
 - The stock Home Assistant companion app is not enough: it only reports totals, with no time you
   fell asleep and no stages.
 
@@ -98,6 +101,7 @@ and restart.
 
 | Version | In short |
 |---|---|
+| **1.3.0** | **Life Dashboard 1.4.0 or newer is now required** for filling the history with past nights. SleepRings reads them only through Life Dashboard's action `life_dashboard.get_sleep_nights`; the old way, which read Life Dashboard's internals, is removed. Nothing changes if your Life Dashboard is 1.4.0 or newer, or if SleepRings is already set up: your stored nights stay. |
 | **1.2.0** | Past nights are now read through Life Dashboard's own action, `life_dashboard.get_sleep_nights`, added to Life Dashboard 1.4.0 for this purpose, where SleepRings used to read its internals. Nothing changes in what you see, and older Life Dashboard versions keep working the old way for now. Update Life Dashboard to 1.4.0 or newer when you can. |
 | **1.1.1** | A night with no recording (watch not worn) now shows as an empty day when you step through nights, where 1.1.0 skipped over it. |
 | **1.1.0** | **Go back in time:** arrows and a date picker beside the date, or click a bar in the history. **Hover or tap** a sleep stage, an hour of the heart-rate chart or a history bar for its detail. The **history** now stacks each night into Duration, Bedtime and Interruptions (`history_style: bands` brings the old look back). Stage timelines are kept for every night from this version on. |

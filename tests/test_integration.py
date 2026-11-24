@@ -3,7 +3,6 @@
 import json
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
-from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
@@ -265,8 +264,17 @@ async def test_history_is_seeded_from_the_source(hass: HomeAssistant) -> None:
     assert diagnostics["model_version"] == "v5"
 
 
-async def test_life_dashboard_ledger_is_read_defensively(hass: HomeAssistant) -> None:
+class _Internals:
+    """Stands in for Life Dashboard's runtime data, which SleepRings must never read."""
+
+    def __getattr__(self, name: str) -> object:
+        raise AssertionError(f"Life Dashboard's runtime data was read: {name}")
+
+
+async def test_no_past_nights_without_life_dashboards_action(hass: HomeAssistant) -> None:
+    """Life Dashboard before 1.4.0 has no action: no seed, and its internals stay unread."""
     source = LifeDashboardSource()
+    # Nothing of Life Dashboard is there at all.
     assert await source.async_past_nights(hass, SOURCE_ENTITY) == []
 
     ld_entry = MockConfigEntry(domain="life_dashboard")
@@ -278,49 +286,12 @@ async def test_life_dashboard_ledger_is_read_defensively(hass: HomeAssistant) ->
         suggested_object_id="phone_last_sleep_asleep",
         config_entry=ld_entry,
     )
-    t0 = datetime(2030, 3, 1, 12, 0, tzinfo=UTC).timestamp()
-    ld_entry.runtime_data = SimpleNamespace(
-        history=SimpleNamespace(
-            ledger=SimpleNamespace(
-                sleep={
-                    "nights": {
-                        "main": {
-                            "day": "2030-03-02",
-                            "start": t0,
-                            "end": t0 + 28800,
-                            "asleep": 440.0,
-                            "awake": 10.0,
-                        },
-                        "nap": {
-                            "day": "2030-03-02",
-                            "start": t0 + 40000,
-                            "end": t0 + 42400,
-                            "asleep": 35.0,
-                        },
-                    },
-                    "stages": {
-                        "main": [
-                            ["in_bed", t0, t0 + 28800],
-                            ["light", t0 + 600, t0 + 28800],
-                            ["deep", t0 + 3600, t0 + 7200, "uuid"],
-                            ["awake", t0 + 10000, t0 + 10300],
-                        ]
-                    },
-                }
-            )
-        )
-    )
-    nights = await source.async_past_nights(hass, SOURCE_ENTITY)
-    assert len(nights) == 1
-    assert nights[0].asleep_minutes == 440
-    assert [s.stage for s in nights[0].stages] == ["core", "deep", "core"]
-
-    ld_entry.runtime_data = SimpleNamespace(history=None)
+    ld_entry.runtime_data = _Internals()
     assert await source.async_past_nights(hass, SOURCE_ENTITY) == []
 
 
 async def test_past_nights_come_from_life_dashboards_action(hass: HomeAssistant) -> None:
-    """Life Dashboard 1.4.0 and newer: the action is asked, not the ledger."""
+    """Life Dashboard 1.4.0 and newer: the action is asked, and nothing else."""
     source = LifeDashboardSource()
     ld_entry = MockConfigEntry(domain="life_dashboard")
     ld_entry.add_to_hass(hass)
@@ -331,8 +302,7 @@ async def test_past_nights_come_from_life_dashboards_action(hass: HomeAssistant)
         suggested_object_id="phone_last_sleep_asleep",
         config_entry=ld_entry,
     )
-    # A ledger that must not be touched while the action answers.
-    ld_entry.runtime_data = SimpleNamespace(history=None)
+    ld_entry.runtime_data = _Internals()
     answer: dict = {
         "nights": [
             {
@@ -417,32 +387,15 @@ async def test_past_nights_come_from_life_dashboards_action(hass: HomeAssistant)
     assert nights[0].awake_minutes == 12.0
     assert [s.stage for s in nights[1].stages] == ["core", "deep", "awake", "rem"]
 
-    # An answer that is not what was agreed, or an error: back to the ledger.
-    t0 = datetime(2030, 3, 1, 12, 0, tzinfo=UTC).timestamp()
-    ld_entry.runtime_data = SimpleNamespace(
-        history=SimpleNamespace(
-            ledger=SimpleNamespace(
-                sleep={
-                    "nights": {
-                        "main": {
-                            "day": "2030-03-02",
-                            "start": t0,
-                            "end": t0 + 28800,
-                            "asleep": 401.0,
-                        }
-                    }
-                }
-            )
-        )
-    )
+    # An answer that is not what was agreed, or an error: no past nights.
     good = answer["nights"]
     answer["nights"] = "nonsense"
-    assert [n.asleep_minutes for n in await source.async_past_nights(hass, SOURCE_ENTITY)] == [401]
+    assert await source.async_past_nights(hass, SOURCE_ENTITY) == []
     answer["nights"] = good
     answer["error"] = ServiceValidationError("no such phone")
-    assert [n.asleep_minutes for n in await source.async_past_nights(hass, SOURCE_ENTITY)] == [401]
+    assert await source.async_past_nights(hass, SOURCE_ENTITY) == []
 
-    # No nights kept yet is an answer too, and not a reason to go to the ledger.
+    # No nights kept yet is an answer too.
     del answer["error"]
     answer["nights"] = []
     assert await source.async_past_nights(hass, SOURCE_ENTITY) == []

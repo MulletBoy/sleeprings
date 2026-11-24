@@ -2,10 +2,9 @@
 
 Reads ``sensor.<name>_last_sleep_asleep``: the newest main night, with the
 stage timeline in its attributes. Past nights for seeding come from the action
-``life_dashboard.get_sleep_nights`` (Life Dashboard 1.4.0 and newer). Older
-versions have no such action; there the integration's in-memory ledger is read,
-which is not a public API, so every access is guarded and a failure simply
-means "no seed".
+``life_dashboard.get_sleep_nights`` (Life Dashboard 1.4.0 and newer) and from
+nowhere else: with an older version, or when the action fails, there is simply
+no seed and the history starts with the next night.
 """
 
 from __future__ import annotations
@@ -124,28 +123,22 @@ class LifeDashboardSource:
         )
 
     async def async_past_nights(self, hass: HomeAssistant, entity_id: str) -> list[Night]:
-        """Read earlier nights from Life Dashboard: its action, or else its ledger."""
-        nights = await self._nights_from_action(hass, entity_id)
-        if nights is not None:
-            return nights
-        try:
-            return self._past_nights(hass, entity_id)
-        except Exception:  # noqa: BLE001 - undocumented internals may change shape
-            _LOGGER.debug("Could not read past nights from Life Dashboard", exc_info=True)
-            return []
-
-    async def _nights_from_action(self, hass: HomeAssistant, entity_id: str) -> list[Night] | None:
-        """Past nights from ``life_dashboard.get_sleep_nights``; None when that cannot be used.
+        """Read earlier nights through ``life_dashboard.get_sleep_nights``.
 
         The action returns every session in the format of the sleep entity's
         attributes, so the same parsing applies, and the main night per day is
-        picked here. None sends the caller to the ledger of an older version.
+        picked here. Without the action (Life Dashboard before 1.4.0), or when
+        it fails or answers something else, there are no past nights.
         """
         if not hass.services.has_service(LIFE_DASHBOARD_DOMAIN, ACTION_GET_SLEEP_NIGHTS):
-            return None
+            _LOGGER.debug(
+                "Life Dashboard has no get_sleep_nights action (1.4.0 or newer is needed): "
+                "no past nights"
+            )
+            return []
         registry_entry = er.async_get(hass).async_get(entity_id)
         if registry_entry is None or registry_entry.config_entry_id is None:
-            return None
+            return []
         try:
             response = await hass.services.async_call(
                 LIFE_DASHBOARD_DOMAIN,
@@ -156,10 +149,10 @@ class LifeDashboardSource:
             )
         except HomeAssistantError, vol.Invalid:
             _LOGGER.debug("Life Dashboard did not return past nights", exc_info=True)
-            return None
+            return []
         raw = response.get("nights") if isinstance(response, Mapping) else None
         if not isinstance(raw, list):
-            return None
+            return []
         sessions = [
             night
             for item in raw[-MAX_ACTION_SESSIONS:]
@@ -237,36 +230,3 @@ class LifeDashboardSource:
                 for row in rows
             ),
         )
-
-    def _past_nights(self, hass: HomeAssistant, entity_id: str) -> list[Night]:
-        registry_entry = er.async_get(hass).async_get(entity_id)
-        if registry_entry is None or registry_entry.config_entry_id is None:
-            return []
-        entry = hass.config_entries.async_get_entry(registry_entry.config_entry_id)
-        sleep = entry.runtime_data.history.ledger.sleep  # type: ignore[union-attr]
-        stage_samples: Mapping[str, list] = sleep.get("stages") or {}
-
-        sessions: list[Night] = []
-        for identity, record in (sleep.get("nights") or {}).items():
-            start = datetime.fromtimestamp(float(record["start"]), UTC)
-            end = datetime.fromtimestamp(float(record["end"]), UTC)
-            samples = [
-                Stage(
-                    STAGE_MAP[str(sample[0])],
-                    datetime.fromtimestamp(float(sample[1]), UTC),
-                    datetime.fromtimestamp(float(sample[2]), UTC),
-                )
-                for sample in stage_samples.get(identity, [])[:MAX_STAGE_SAMPLES]
-                if str(sample[0]) in STAGE_MAP
-            ]
-            sessions.append(
-                Night(
-                    wake_date=date.fromisoformat(str(record["day"])),
-                    start=start,
-                    end=end,
-                    asleep_minutes=float(record.get("asleep") or 0),
-                    awake_minutes=_number(record.get("awake")),
-                    stages=flatten_stages(samples),
-                )
-            )
-        return main_nights(sessions)
