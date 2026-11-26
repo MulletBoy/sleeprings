@@ -86,13 +86,16 @@ Other sources can be added through a small adapter; see [Adding a source](#addin
 
 [![Open this repository in Home Assistant.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=MulletBoy&repository=sleeprings&category=integration)
 
-1. Open **Settings > Marketplace**, choose **Add from link** and paste
-   `https://github.com/MulletBoy/sleeprings` (type: Integration). On Home Assistant versions before
-   2026.11 with HACS: **HACS > Custom repositories**.
+1. Open **Settings > Marketplace** and search for **SleepRings**. On Home Assistant versions before
+   2026.11 with HACS: search for it in **HACS**.
 2. Download **SleepRings** and restart Home Assistant.
 3. Go to **Settings > Devices & services > Add integration > SleepRings**.
 4. Pick your sleep entity (for Life Dashboard: the sensor ending in `_last_sleep_asleep`), and
    optionally a time zone entity (see [Time zones](#time-zones)).
+
+If the search does not find SleepRings, add it as a custom repository: in Marketplace choose
+**Add from link** and paste `https://github.com/MulletBoy/sleeprings` (type: Integration); in HACS
+use **Custom repositories**. Then carry on with step 2.
 
 Manual install: copy `custom_components/sleep_rings` into your `config/custom_components` folder
 and restart.
